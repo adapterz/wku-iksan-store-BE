@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const requireLogin = require('../middlewares/requireLogin');
 const giftModel = require('../db/models/giftModel');
+const { sendSuccess, sendError } = require('./api');
 
 router.get('/', requireLogin, async (req, res) => {
   try {
@@ -25,21 +26,14 @@ router.get('/', requireLogin, async (req, res) => {
       usedAt: gift.used_at
     }));
 
-    return res.status(200).json({
-      status: 200,
+    return sendSuccess(res, {
       code: "GIFT_LIST_SUCCESS",
-      message: null,
       data: formattedData
     });
 
   } catch (error) {
     console.error('Failed to fetch gifts:', error);
-    return res.status(500).json({
-      status: 500,
-      code: "INTERNAL_SERVER_ERROR",
-      message: null,
-      data: null
-    });
+    return sendError(res);
   }
 });
 
@@ -50,17 +44,15 @@ router.get('/:id', requireLogin, async (req, res) => {
 
     const gift = await giftModel.getGiftDetailById(giftId);
     if (!gift) {
-      return res.status(404).json({ status: 404, code: "GIFT_NOT_FOUND", message: null, data: null });
+      return sendError(res, { status: 404, code: "GIFT_NOT_FOUND" });
     }
 
     if (gift.receiver_id !== userId) {
-      return res.status(403).json({ status: 403, code: "FORBIDDEN_NOT_OWNER", message: null, data: null });
+      return sendError(res, { status: 403, code: "FORBIDDEN_NOT_OWNER" });
     }
 
-    return res.status(200).json({
-      status: 200,
+    return sendSuccess(res, {
       code: "GIFT_DETAIL_SUCCESS",
-      message: null,
       data: {
         giftId: gift.gift_id,
         productName: gift.product_name,
@@ -78,7 +70,7 @@ router.get('/:id', requireLogin, async (req, res) => {
     });
   } catch (error) {
     console.error('Failed to fetch gift detail:', error);
-    return res.status(500).json({ status: 500, code: "INTERNAL_SERVER_ERROR", message: null, data: null });
+    return sendError(res);
   }
 });
 
@@ -89,27 +81,25 @@ router.patch('/:id/use', requireLogin, async (req, res) => {
 
     const gift = await giftModel.getGiftDetailById(giftId);
     if (!gift) {
-      return res.status(404).json({ status: 404, code: "GIFT_NOT_FOUND", message: null, data: null });
+      return sendError(res, { status: 404, code: "GIFT_NOT_FOUND" });
     }
 
     if (gift.receiver_id !== userId) {
-      return res.status(403).json({ status: 403, code: "FORBIDDEN_NOT_OWNER", message: null, data: null });
+      return sendError(res, { status: 403, code: "FORBIDDEN_NOT_OWNER" });
     }
 
     const affectedRows = await giftModel.updateGiftStatusToUsed(giftId);
     if (affectedRows === 0) {
       // It means it was not in 'unused' status
-      return res.status(409).json({ status: 409, code: "GIFT_ALREADY_USED", message: null, data: null });
+      return sendError(res, { status: 409, code: "GIFT_ALREADY_USED" });
     }
 
     // To return the exact updated usedAt, we can fetch it again or rely on DB defaults.
     // Let's just fetch it again to be perfectly accurate with DB time.
     const updatedGift = await giftModel.getGiftDetailById(giftId);
 
-    return res.status(200).json({
-      status: 200,
+    return sendSuccess(res, {
       code: "GIFT_USE_SUCCESS",
-      message: null,
       data: {
         giftId: updatedGift.gift_id,
         status: updatedGift.status,
@@ -119,7 +109,7 @@ router.patch('/:id/use', requireLogin, async (req, res) => {
 
   } catch (error) {
     console.error('Failed to use gift:', error);
-    return res.status(500).json({ status: 500, code: "INTERNAL_SERVER_ERROR", message: null, data: null });
+    return sendError(res);
   }
 });
 

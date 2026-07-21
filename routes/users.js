@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const userModel = require('../db/models/userModel');
 const requireLogin = require('../middlewares/requireLogin');
+const { sendSuccess, sendError } = require('./api');
 
 // GET /api/users/search?nickname={nickname}
 router.get('/search', requireLogin, async (req, res) => {
@@ -9,29 +10,23 @@ router.get('/search', requireLogin, async (req, res) => {
     const { nickname } = req.query;
 
     if (!nickname) {
-      return res.status(404).json({
+      return sendError(res, {
         status: 404,
-        code: "USER_NOT_FOUND",
-        message: null,
-        data: null
+        code: "USER_NOT_FOUND"
       });
     }
 
     const user = await userModel.getUserByNickname(nickname);
 
     if (!user) {
-      return res.status(404).json({
+      return sendError(res, {
         status: 404,
-        code: "USER_NOT_FOUND",
-        message: null,
-        data: null
+        code: "USER_NOT_FOUND"
       });
     }
 
-    return res.status(200).json({
-      status: 200,
+    return sendSuccess(res, {
       code: "USER_SEARCH_SUCCESS",
-      message: null,
       data: {
         userId: user.id,
         nickname: user.nickname
@@ -40,12 +35,7 @@ router.get('/search', requireLogin, async (req, res) => {
 
   } catch (error) {
     console.error('User search error:', error);
-    return res.status(500).json({
-      status: 500,
-      code: "INTERNAL_SERVER_ERROR",
-      message: null,
-      data: null
-    });
+    return sendError(res);
   }
 });
 

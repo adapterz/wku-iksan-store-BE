@@ -1,13 +1,13 @@
+const { sendError } = require('../routes/api');
+
 const requireLogin = (req, res, next) => {
   if (req.session && req.session.userId) {
     return next();
   }
   
-  return res.status(401).json({
+  return sendError(res, {
     status: 401,
-    code: "UNAUTHORIZED",
-    message: null,
-    data: null
+    code: "UNAUTHORIZED"
   });
 };
 
