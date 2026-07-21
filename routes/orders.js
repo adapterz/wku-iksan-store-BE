@@ -4,6 +4,7 @@ const requireLogin = require('../middlewares/requireLogin');
 const orderModel = require('../db/models/orderModel');
 const productModel = require('../db/models/productModel');
 const userModel = require('../db/models/userModel');
+const { sendSuccess, sendError } = require('./api');
 
 // API 명세서 기준: 결제 Mock/금액 검증 로직 없음 (Issue #141 확정)
 router.post('/', requireLogin, async (req, res) => {
@@ -12,34 +13,32 @@ router.post('/', requireLogin, async (req, res) => {
     const userId = req.session.userId;
 
     if (!productId) {
-      return res.status(400).json({ status: 400, code: "REQUIRED_PRODUCT_ID", message: null, data: null });
+      return sendError(res, { status: 400, code: "REQUIRED_PRODUCT_ID" });
     }
     if (isSelfGift === undefined) {
-      return res.status(400).json({ status: 400, code: "REQUIRED_IS_SELF_GIFT", message: null, data: null });
+      return sendError(res, { status: 400, code: "REQUIRED_IS_SELF_GIFT" });
     }
     if (!isSelfGift && !receiverId) {
-      return res.status(400).json({ status: 400, code: "REQUIRED_RECEIVER_ID", message: null, data: null });
+      return sendError(res, { status: 400, code: "REQUIRED_RECEIVER_ID" });
     }
 
     const finalReceiverId = isSelfGift ? userId : receiverId;
 
     const product = await productModel.getProductById(productId);
     if (!product) {
-      return res.status(404).json({ status: 404, code: "PRODUCT_NOT_FOUND", message: null, data: null });
+      return sendError(res, { status: 404, code: "PRODUCT_NOT_FOUND" });
     }
 
     if (!isSelfGift && Number(receiverId) === userId) {
-      return res.status(404).json({
+      return sendError(res, {
         status: 404,
-        code: "RECEIVER_NOT_FOUND",
-        message: null,
-        data: null
+        code: "RECEIVER_NOT_FOUND"
       });
     }
 
     const receiver = await userModel.getUserById(finalReceiverId);
     if (!receiver) {
-      return res.status(404).json({ status: 404, code: "RECEIVER_NOT_FOUND", message: null, data: null });
+      return sendError(res, { status: 404, code: "RECEIVER_NOT_FOUND" });
     }
 
     // 12자리 난수 생성 (바코드)
@@ -52,16 +51,15 @@ router.post('/', requireLogin, async (req, res) => {
     const orderId = await orderModel.createOrder(userId, productId, finalReceiverId, finalTotalPrice, message || null, isSelfGift);
     const giftId = await orderModel.createGift(orderId, barcode);
 
-    return res.status(201).json({
+    return sendSuccess(res, {
       status: 201,
       code: "ORDER_CREATE_SUCCESS",
-      message: null,
       data: { orderId, giftId }
     });
 
   } catch (error) {
     console.error('Order creation error:', error);
-    return res.status(500).json({ status: 500, code: "INTERNAL_SERVER_ERROR", message: null, data: null });
+    return sendError(res);
   }
 });
 
@@ -72,21 +70,19 @@ router.get('/:id', requireLogin, async (req, res) => {
 
     const order = await orderModel.getOrderById(orderId);
     if (!order) {
-      return res.status(404).json({ status: 404, code: "ORDER_NOT_FOUND", message: null, data: null });
+      return sendError(res, { status: 404, code: "ORDER_NOT_FOUND" });
     }
 
     if (order.user_id !== userId) {
-      return res.status(403).json({ status: 403, code: "FORBIDDEN_NOT_OWNER", message: null, data: null });
+      return sendError(res, { status: 403, code: "FORBIDDEN_NOT_OWNER" });
     }
 
     const receiver = await userModel.getUserById(order.receiver_id);
     const product = await productModel.getProductById(order.product_id);
     const gift = await orderModel.getGiftByOrderId(order.id);
     
-    return res.status(200).json({
-      status: 200,
+    return sendSuccess(res, {
       code: "ORDER_DETAIL_SUCCESS",
-      message: null,
       data: {
         orderId: order.id,
         product: product ? {
@@ -110,7 +106,7 @@ router.get('/:id', requireLogin, async (req, res) => {
 
   } catch (error) {
     console.error('Order detail error:', error);
-    return res.status(500).json({ status: 500, code: "INTERNAL_SERVER_ERROR", message: null, data: null });
+    return sendError(res);
   }
 });
 
