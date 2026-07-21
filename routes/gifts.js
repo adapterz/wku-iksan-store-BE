@@ -3,6 +3,7 @@ const router = express.Router();
 const requireLogin = require('../middlewares/requireLogin');
 const giftModel = require('../db/models/giftModel');
 const { sendSuccess, sendError } = require('./api');
+const { SUCCESS, ERROR } = require('../constants/responseCodes');
 
 router.get('/', requireLogin, async (req, res) => {
   try {
@@ -27,7 +28,7 @@ router.get('/', requireLogin, async (req, res) => {
     }));
 
     return sendSuccess(res, {
-      code: "GIFT_LIST_SUCCESS",
+      ...SUCCESS.GIFT_LIST_SUCCESS,
       data: formattedData
     });
 
@@ -44,15 +45,15 @@ router.get('/:id', requireLogin, async (req, res) => {
 
     const gift = await giftModel.getGiftDetailById(giftId);
     if (!gift) {
-      return sendError(res, { status: 404, code: "GIFT_NOT_FOUND" });
+      return sendError(res, ERROR.GIFT_NOT_FOUND);
     }
 
     if (gift.receiver_id !== userId) {
-      return sendError(res, { status: 403, code: "FORBIDDEN_NOT_OWNER" });
+      return sendError(res, ERROR.FORBIDDEN_NOT_OWNER);
     }
 
     return sendSuccess(res, {
-      code: "GIFT_DETAIL_SUCCESS",
+      ...SUCCESS.GIFT_DETAIL_SUCCESS,
       data: {
         giftId: gift.gift_id,
         productName: gift.product_name,
@@ -81,17 +82,17 @@ router.patch('/:id/use', requireLogin, async (req, res) => {
 
     const gift = await giftModel.getGiftDetailById(giftId);
     if (!gift) {
-      return sendError(res, { status: 404, code: "GIFT_NOT_FOUND" });
+      return sendError(res, ERROR.GIFT_NOT_FOUND);
     }
 
     if (gift.receiver_id !== userId) {
-      return sendError(res, { status: 403, code: "FORBIDDEN_NOT_OWNER" });
+      return sendError(res, ERROR.FORBIDDEN_NOT_OWNER);
     }
 
     const affectedRows = await giftModel.updateGiftStatusToUsed(giftId);
     if (affectedRows === 0) {
       // It means it was not in 'unused' status
-      return sendError(res, { status: 409, code: "GIFT_ALREADY_USED" });
+      return sendError(res, ERROR.GIFT_ALREADY_USED);
     }
 
     // To return the exact updated usedAt, we can fetch it again or rely on DB defaults.
@@ -99,7 +100,7 @@ router.patch('/:id/use', requireLogin, async (req, res) => {
     const updatedGift = await giftModel.getGiftDetailById(giftId);
 
     return sendSuccess(res, {
-      code: "GIFT_USE_SUCCESS",
+      ...SUCCESS.GIFT_USE_SUCCESS,
       data: {
         giftId: updatedGift.gift_id,
         status: updatedGift.status,

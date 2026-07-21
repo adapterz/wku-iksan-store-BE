@@ -5,6 +5,7 @@ const orderModel = require('../db/models/orderModel');
 const productModel = require('../db/models/productModel');
 const userModel = require('../db/models/userModel');
 const { sendSuccess, sendError } = require('./api');
+const { SUCCESS, ERROR } = require('../constants/responseCodes');
 
 // API 명세서 기준: 결제 Mock/금액 검증 로직 없음 (Issue #141 확정)
 router.post('/', requireLogin, async (req, res) => {
@@ -13,32 +14,29 @@ router.post('/', requireLogin, async (req, res) => {
     const userId = req.session.userId;
 
     if (!productId) {
-      return sendError(res, { status: 400, code: "REQUIRED_PRODUCT_ID" });
+      return sendError(res, ERROR.REQUIRED_PRODUCT_ID);
     }
     if (isSelfGift === undefined) {
-      return sendError(res, { status: 400, code: "REQUIRED_IS_SELF_GIFT" });
+      return sendError(res, ERROR.REQUIRED_IS_SELF_GIFT);
     }
     if (!isSelfGift && !receiverId) {
-      return sendError(res, { status: 400, code: "REQUIRED_RECEIVER_ID" });
+      return sendError(res, ERROR.REQUIRED_RECEIVER_ID);
     }
 
     const finalReceiverId = isSelfGift ? userId : receiverId;
 
     const product = await productModel.getProductById(productId);
     if (!product) {
-      return sendError(res, { status: 404, code: "PRODUCT_NOT_FOUND" });
+      return sendError(res, ERROR.PRODUCT_NOT_FOUND);
     }
 
     if (!isSelfGift && Number(receiverId) === userId) {
-      return sendError(res, {
-        status: 404,
-        code: "RECEIVER_NOT_FOUND"
-      });
+      return sendError(res, ERROR.RECEIVER_NOT_FOUND);
     }
 
     const receiver = await userModel.getUserById(finalReceiverId);
     if (!receiver) {
-      return sendError(res, { status: 404, code: "RECEIVER_NOT_FOUND" });
+      return sendError(res, ERROR.RECEIVER_NOT_FOUND);
     }
 
     // 12자리 난수 생성 (바코드)
@@ -52,8 +50,7 @@ router.post('/', requireLogin, async (req, res) => {
     const giftId = await orderModel.createGift(orderId, barcode);
 
     return sendSuccess(res, {
-      status: 201,
-      code: "ORDER_CREATE_SUCCESS",
+      ...SUCCESS.ORDER_CREATE_SUCCESS,
       data: { orderId, giftId }
     });
 
@@ -70,11 +67,11 @@ router.get('/:id', requireLogin, async (req, res) => {
 
     const order = await orderModel.getOrderById(orderId);
     if (!order) {
-      return sendError(res, { status: 404, code: "ORDER_NOT_FOUND" });
+      return sendError(res, ERROR.ORDER_NOT_FOUND);
     }
 
     if (order.user_id !== userId) {
-      return sendError(res, { status: 403, code: "FORBIDDEN_NOT_OWNER" });
+      return sendError(res, ERROR.FORBIDDEN_NOT_OWNER);
     }
 
     const receiver = await userModel.getUserById(order.receiver_id);
@@ -82,7 +79,7 @@ router.get('/:id', requireLogin, async (req, res) => {
     const gift = await orderModel.getGiftByOrderId(order.id);
     
     return sendSuccess(res, {
-      code: "ORDER_DETAIL_SUCCESS",
+      ...SUCCESS.ORDER_DETAIL_SUCCESS,
       data: {
         orderId: order.id,
         product: product ? {

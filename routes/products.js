@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const productModel = require('../db/models/productModel');
 const { sendSuccess, sendError } = require('./api');
+const { SUCCESS, ERROR } = require('../constants/responseCodes');
 
 // 상품 목록 조회
 router.get('/', async (req, res) => {
@@ -17,7 +18,7 @@ router.get('/', async (req, res) => {
     }));
 
     return sendSuccess(res, {
-      code: "PRODUCT_LIST_SUCCESS",
+      ...SUCCESS.PRODUCT_LIST_SUCCESS,
       data: products
     });
   } catch (error) {
@@ -35,16 +36,13 @@ router.get('/:id', async (req, res) => {
     const product = await productModel.getProductById(id);
 
     if (!product) {
-      return sendError(res, {
-        status: 404,
-        code: "PRODUCT_NOT_FOUND"
-      });
+      return sendError(res, ERROR.PRODUCT_NOT_FOUND);
     }
 
     // DB 필드 -> API 응답 필드 변환 계층.
     // 실제 쿼리로 교체 시 이 매핑 로직은 유지하고 모델 내부 쿼리만 교체하면 됨
     return sendSuccess(res, {
-      code: "PRODUCT_DETAIL_SUCCESS",
+      ...SUCCESS.PRODUCT_DETAIL_SUCCESS,
       data: {
         id: product.id,
         name: product.name,
