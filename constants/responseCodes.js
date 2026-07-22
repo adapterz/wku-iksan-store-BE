@@ -1,0 +1,49 @@
+// 각 라우터에서 공통으로 사용하는 응답 코드(status + code)를 한 곳에서 관리한다.
+// 문자열 리터럴 중복/오타를 막고, FE와 공유하는 코드 스펙 역할을 겸한다.
+
+const SUCCESS = {
+  SIGNUP_SUCCESS: { status: 201, code: 'SIGNUP_SUCCESS' },
+  LOGIN_SUCCESS: { status: 200, code: 'LOGIN_SUCCESS' },
+  LOGOUT_SUCCESS: { status: 200, code: 'LOGOUT_SUCCESS' },
+  SESSION_VALID: { status: 200, code: 'SESSION_VALID' },
+
+  USER_SEARCH_SUCCESS: { status: 200, code: 'USER_SEARCH_SUCCESS' },
+
+  PRODUCT_LIST_SUCCESS: { status: 200, code: 'PRODUCT_LIST_SUCCESS' },
+  PRODUCT_DETAIL_SUCCESS: { status: 200, code: 'PRODUCT_DETAIL_SUCCESS' },
+
+  ORDER_CREATE_SUCCESS: { status: 201, code: 'ORDER_CREATE_SUCCESS' },
+  ORDER_DETAIL_SUCCESS: { status: 200, code: 'ORDER_DETAIL_SUCCESS' },
+
+  GIFT_LIST_SUCCESS: { status: 200, code: 'GIFT_LIST_SUCCESS' },
+  GIFT_DETAIL_SUCCESS: { status: 200, code: 'GIFT_DETAIL_SUCCESS' },
+  GIFT_USE_SUCCESS: { status: 200, code: 'GIFT_USE_SUCCESS' }
+};
+
+const ERROR = {
+  REQUIRED_EMAIL: { status: 400, code: 'REQUIRED_EMAIL' },
+  REQUIRED_PASSWORD: { status: 400, code: 'REQUIRED_PASSWORD' },
+  REQUIRED_NICKNAME: { status: 400, code: 'REQUIRED_NICKNAME' },
+  EMAIL_ALREADY_EXISTS: { status: 409, code: 'EMAIL_ALREADY_EXISTS' },
+  NICKNAME_ALREADY_EXISTS: { status: 409, code: 'NICKNAME_ALREADY_EXISTS' },
+  INVALID_EMAIL_OR_PASSWORD: { status: 401, code: 'INVALID_EMAIL_OR_PASSWORD' },
+  UNAUTHORIZED: { status: 401, code: 'UNAUTHORIZED' },
+
+  USER_NOT_FOUND: { status: 404, code: 'USER_NOT_FOUND' },
+
+  PRODUCT_NOT_FOUND: { status: 404, code: 'PRODUCT_NOT_FOUND' },
+
+  REQUIRED_PRODUCT_ID: { status: 400, code: 'REQUIRED_PRODUCT_ID' },
+  REQUIRED_IS_SELF_GIFT: { status: 400, code: 'REQUIRED_IS_SELF_GIFT' },
+  REQUIRED_RECEIVER_ID: { status: 400, code: 'REQUIRED_RECEIVER_ID' },
+  RECEIVER_NOT_FOUND: { status: 404, code: 'RECEIVER_NOT_FOUND' },
+  ORDER_NOT_FOUND: { status: 404, code: 'ORDER_NOT_FOUND' },
+  FORBIDDEN_NOT_OWNER: { status: 403, code: 'FORBIDDEN_NOT_OWNER' },
+
+  GIFT_NOT_FOUND: { status: 404, code: 'GIFT_NOT_FOUND' },
+  GIFT_ALREADY_USED: { status: 409, code: 'GIFT_ALREADY_USED' },
+
+  INTERNAL_SERVER_ERROR: { status: 500, code: 'INTERNAL_SERVER_ERROR' }
+};
+
+module.exports = { SUCCESS, ERROR };

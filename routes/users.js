@@ -3,6 +3,7 @@ const router = express.Router();
 const userModel = require('../db/models/userModel');
 const requireLogin = require('../middlewares/requireLogin');
 const { sendSuccess, sendError } = require('./api');
+const { SUCCESS, ERROR } = require('../constants/responseCodes');
 
 // GET /api/users/search?nickname={nickname}
 router.get('/search', requireLogin, async (req, res) => {
@@ -10,23 +11,17 @@ router.get('/search', requireLogin, async (req, res) => {
     const { nickname } = req.query;
 
     if (!nickname) {
-      return sendError(res, {
-        status: 404,
-        code: "USER_NOT_FOUND"
-      });
+      return sendError(res, ERROR.USER_NOT_FOUND);
     }
 
     const user = await userModel.getUserByNickname(nickname);
 
     if (!user) {
-      return sendError(res, {
-        status: 404,
-        code: "USER_NOT_FOUND"
-      });
+      return sendError(res, ERROR.USER_NOT_FOUND);
     }
 
     return sendSuccess(res, {
-      code: "USER_SEARCH_SUCCESS",
+      ...SUCCESS.USER_SEARCH_SUCCESS,
       data: {
         userId: user.id,
         nickname: user.nickname
