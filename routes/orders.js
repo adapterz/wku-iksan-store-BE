@@ -46,8 +46,15 @@ router.post('/', requireLogin, async (req, res) => {
     }
 
     const finalTotalPrice = product.price; // 서버에서 직접 상품 가격 조회
-    const orderId = await orderModel.createOrder(userId, productId, finalReceiverId, finalTotalPrice, message || null, isSelfGift);
-    const giftId = await orderModel.createGift(orderId, barcode);
+    const { orderId, giftId } = await orderModel.createOrderWithGift(
+      userId,
+      productId,
+      finalReceiverId,
+      finalTotalPrice,
+      message || null,
+      isSelfGift,
+      barcode
+    );
 
     return sendSuccess(res, {
       ...SUCCESS.ORDER_CREATE_SUCCESS,
