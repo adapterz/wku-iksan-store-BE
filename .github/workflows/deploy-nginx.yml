@@ -1,0 +1,35 @@
+name: Deploy Nginx Config
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/nginx/**'
+
+jobs:
+  deploy-nginx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Nginx 서버로 설정 파일 전송
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.NGINX_HOST }}
+          username: ${{ secrets.NGINX_USER }}
+          key: ${{ secrets.CICD_SSH_KEY }}
+          source: "infra/nginx/docker-compose.yml,infra/nginx/iksan.store.conf"
+          target: "~/nginx"
+          strip_components: 2
+
+      - name: Nginx 컨테이너 재기동 및 무중단 리로드
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.NGINX_HOST }}
+          username: ${{ secrets.NGINX_USER }}
+          key: ${{ secrets.CICD_SSH_KEY }}
+          script: |
+            cd ~/nginx
+            docker compose up -d
+            docker compose exec -T nginx nginx -t
+            docker compose exec -T nginx nginx -s reload
