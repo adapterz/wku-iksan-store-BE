@@ -4,17 +4,19 @@ const userModel = require('../db/models/userModel');
 const requireLogin = require('../middlewares/requireLogin');
 const { sendSuccess, sendError } = require('./api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
+const { validateNickname } = require('../validators/authValidator');
 
 // GET /api/users/search?nickname={nickname}
 router.get('/search', requireLogin, async (req, res) => {
   try {
     const { nickname } = req.query;
 
-    if (!nickname) {
-      return sendError(res, ERROR.USER_NOT_FOUND);
+    const nicknameValidation = validateNickname(nickname);
+    if (nicknameValidation.errorCode) {
+      return sendError(res, ERROR[nicknameValidation.errorCode]);
     }
 
-    const user = await userModel.getUserByNickname(nickname);
+    const user = await userModel.getUserByNickname(nicknameValidation.value);
 
     if (!user) {
       return sendError(res, ERROR.USER_NOT_FOUND);

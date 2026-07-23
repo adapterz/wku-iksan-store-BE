@@ -6,17 +6,39 @@ const requireLogin = require('../middlewares/requireLogin');
 const { sendSuccess, sendError } = require('./api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const {
+  validateEmail,
   validateSignupPassword,
-  validateLoginPassword
+  validateLoginPassword,
+  validateNickname
 } = require('../validators/authValidator');
+
+// 동시 가입 요청으로 발생한 DB 중복 오류를 위반한 UNIQUE 제약별로 구분한다.
+function getDuplicateUserError(error) {
+  if (error.code !== 'ER_DUP_ENTRY') {
+    return null;
+  }
+
+  const errorMessage = `${error.sqlMessage || ''} ${error.message || ''}`;
+
+  if (errorMessage.includes('uq_users_email')) {
+    return ERROR.EMAIL_ALREADY_EXISTS;
+  }
+
+  if (errorMessage.includes('uq_users_nickname')) {
+    return ERROR.NICKNAME_ALREADY_EXISTS;
+  }
+
+  return ERROR.INTERNAL_SERVER_ERROR;
+}
 
 // POST /api/auth/signup - 회원가입
 router.post('/signup', async (req, res) => {
   try {
     const { email, password, nickname } = req.body || {};
 
-    if (!email) {
-      return sendError(res, ERROR.REQUIRED_EMAIL);
+    const emailValidation = validateEmail(email);
+    if (emailValidation.errorCode) {
+      return sendError(res, ERROR[emailValidation.errorCode]);
     }
 
     const passwordValidation = validateSignupPassword(password);
@@ -24,22 +46,27 @@ router.post('/signup', async (req, res) => {
       return sendError(res, ERROR[passwordValidation.errorCode]);
     }
 
-    if (!nickname) {
-      return sendError(res, ERROR.REQUIRED_NICKNAME);
+    const nicknameValidation = validateNickname(nickname);
+    if (nicknameValidation.errorCode) {
+      return sendError(res, ERROR[nicknameValidation.errorCode]);
     }
 
-    const existingEmail = await userModel.getUserByEmail(email);
+    const existingEmail = await userModel.getUserByEmail(emailValidation.value);
     if (existingEmail) {
       return sendError(res, ERROR.EMAIL_ALREADY_EXISTS);
     }
 
-    const existingNickname = await userModel.getUserByNickname(nickname);
+    const existingNickname = await userModel.getUserByNickname(nicknameValidation.value);
     if (existingNickname) {
       return sendError(res, ERROR.NICKNAME_ALREADY_EXISTS);
     }
 
     const hashedPassword = await bcrypt.hash(passwordValidation.value, 10);
-    const newUser = await userModel.createUser(email, hashedPassword, nickname);
+    const newUser = await userModel.createUser(
+      emailValidation.value,
+      hashedPassword,
+      nicknameValidation.value
+    );
 
     return sendSuccess(res, {
       ...SUCCESS.SIGNUP_SUCCESS,
@@ -53,6 +80,12 @@ router.post('/signup', async (req, res) => {
 
   } catch (error) {
     console.error('Error in POST /api/auth/signup:', error);
+
+    const duplicateError = getDuplicateUserError(error);
+    if (duplicateError) {
+      return sendError(res, duplicateError);
+    }
+
     return sendError(res);
   }
 });
@@ -62,8 +95,9 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body || {};
 
-    if (!email) {
-      return sendError(res, ERROR.REQUIRED_EMAIL);
+    const emailValidation = validateEmail(email);
+    if (emailValidation.errorCode) {
+      return sendError(res, ERROR[emailValidation.errorCode]);
     }
 
     const passwordValidation = validateLoginPassword(password);
@@ -71,7 +105,7 @@ router.post('/login', async (req, res) => {
       return sendError(res, ERROR[passwordValidation.errorCode]);
     }
 
-    const user = await userModel.getUserByEmail(email);
+    const user = await userModel.getUserByEmail(emailValidation.value);
     if (!user) {
       return sendError(res, ERROR.INVALID_EMAIL_OR_PASSWORD);
     }
