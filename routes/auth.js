@@ -5,18 +5,25 @@ const bcrypt = require('bcrypt');
 const requireLogin = require('../middlewares/requireLogin');
 const { sendSuccess, sendError } = require('./api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
+const {
+  validateSignupPassword,
+  validateLoginPassword
+} = require('../validators/authValidator');
 
 // POST /api/auth/signup - 회원가입
 router.post('/signup', async (req, res) => {
   try {
-    const { email, password, nickname } = req.body;
+    const { email, password, nickname } = req.body || {};
 
     if (!email) {
       return sendError(res, ERROR.REQUIRED_EMAIL);
     }
-    if (!password) {
-      return sendError(res, ERROR.REQUIRED_PASSWORD);
+
+    const passwordValidation = validateSignupPassword(password);
+    if (passwordValidation.errorCode) {
+      return sendError(res, ERROR[passwordValidation.errorCode]);
     }
+
     if (!nickname) {
       return sendError(res, ERROR.REQUIRED_NICKNAME);
     }
@@ -31,7 +38,7 @@ router.post('/signup', async (req, res) => {
       return sendError(res, ERROR.NICKNAME_ALREADY_EXISTS);
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(passwordValidation.value, 10);
     const newUser = await userModel.createUser(email, hashedPassword, nickname);
 
     return sendSuccess(res, {
@@ -53,13 +60,15 @@ router.post('/signup', async (req, res) => {
 // POST /api/auth/login - 로그인
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
     if (!email) {
       return sendError(res, ERROR.REQUIRED_EMAIL);
     }
-    if (!password) {
-      return sendError(res, ERROR.REQUIRED_PASSWORD);
+
+    const passwordValidation = validateLoginPassword(password);
+    if (passwordValidation.errorCode) {
+      return sendError(res, ERROR[passwordValidation.errorCode]);
     }
 
     const user = await userModel.getUserByEmail(email);
@@ -67,7 +76,7 @@ router.post('/login', async (req, res) => {
       return sendError(res, ERROR.INVALID_EMAIL_OR_PASSWORD);
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(passwordValidation.value, user.password);
     if (!isMatch) {
       return sendError(res, ERROR.INVALID_EMAIL_OR_PASSWORD);
     }
