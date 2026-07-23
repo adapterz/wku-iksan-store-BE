@@ -31,5 +31,4 @@ jobs:
           script: |
             cd ~/nginx
             docker compose up -d
-            docker compose exec -T nginx nginx -t
-            docker compose exec -T nginx nginx -s reload
+            docker compose exec -T nginx nginx -t && docker compose exec -T nginx nginx -s reload
