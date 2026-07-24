@@ -2,7 +2,7 @@ CREATE TABLE users (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     email           VARCHAR(255) NOT NULL,
     password        VARCHAR(255) NOT NULL,
-    nickname        VARCHAR(50) NOT NULL,
+    nickname        VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_users_email UNIQUE (email),
