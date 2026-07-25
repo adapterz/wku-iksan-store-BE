@@ -51,12 +51,12 @@ function validateEmail(value) {
     return { errorCode: 'REQUIRED_EMAIL' };
   }
 
-  if (normalizedValue.length > 255) {
-    return { errorCode: 'EMAIL_TOO_LONG' };
-  }
-
   if (!EMAIL_PATTERN.test(normalizedValue)) {
     return { errorCode: 'INVALID_EMAIL_FORMAT' };
+  }
+
+  if (normalizedValue.length > 255) {
+    return { errorCode: 'EMAIL_TOO_LONG' };
   }
 
   return { value: normalizedValue };
