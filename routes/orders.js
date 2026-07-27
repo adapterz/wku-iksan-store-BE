@@ -22,16 +22,15 @@ router.post('/', requireLogin, async (req, res) => {
     if (!isSelfGift && !receiverId) {
       return sendError(res, ERROR.REQUIRED_RECEIVER_ID);
     }
+    if (!isSelfGift && Number(receiverId) === Number(userId)) {
+      return sendError(res, ERROR.CANNOT_GIFT_TO_SELF);
+    }
 
     const finalReceiverId = isSelfGift ? userId : receiverId;
 
     const product = await productModel.getProductById(productId);
     if (!product) {
       return sendError(res, ERROR.PRODUCT_NOT_FOUND);
-    }
-
-    if (!isSelfGift && Number(receiverId) === userId) {
-      return sendError(res, ERROR.RECEIVER_NOT_FOUND);
     }
 
     const receiver = await userModel.getUserById(finalReceiverId);
