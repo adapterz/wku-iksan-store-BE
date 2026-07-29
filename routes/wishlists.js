@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { sendError } = require('./api');
+const { ERROR } = require('../constants/responseCodes');
 
 const sendNotImplemented = (res) => sendError(res, {
-  status: 501,
-  code: 'NOT_IMPLEMENTED',
+  ...ERROR.NOT_IMPLEMENTED,
   message: '찜 API는 아직 구현되지 않았습니다.'
 });
 
