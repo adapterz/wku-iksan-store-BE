@@ -1,14 +1,12 @@
+const { sendError } = require('../routes/api');
+const { ERROR } = require('../constants/responseCodes');
+
 const requireLogin = (req, res, next) => {
   if (req.session && req.session.userId) {
     return next();
   }
-  
-  return res.status(401).json({
-    status: 401,
-    code: "UNAUTHORIZED",
-    message: null,
-    data: null
-  });
+
+  return sendError(res, ERROR.UNAUTHORIZED);
 };
 
 module.exports = requireLogin;

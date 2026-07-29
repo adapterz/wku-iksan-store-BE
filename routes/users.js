@@ -2,36 +2,28 @@ const express = require('express');
 const router = express.Router();
 const userModel = require('../db/models/userModel');
 const requireLogin = require('../middlewares/requireLogin');
+const { sendSuccess, sendError } = require('./api');
+const { SUCCESS, ERROR } = require('../constants/responseCodes');
+const { validateNickname } = require('../validators/authValidator');
 
 // GET /api/users/search?nickname={nickname}
 router.get('/search', requireLogin, async (req, res) => {
   try {
     const { nickname } = req.query;
 
-    if (!nickname) {
-      return res.status(404).json({
-        status: 404,
-        code: "USER_NOT_FOUND",
-        message: null,
-        data: null
-      });
+    const nicknameValidation = validateNickname(nickname);
+    if (nicknameValidation.errorCode) {
+      return sendError(res, ERROR[nicknameValidation.errorCode]);
     }
 
-    const user = await userModel.getUserByNickname(nickname);
+    const user = await userModel.getUserByNickname(nicknameValidation.value);
 
     if (!user) {
-      return res.status(404).json({
-        status: 404,
-        code: "USER_NOT_FOUND",
-        message: null,
-        data: null
-      });
+      return sendError(res, ERROR.USER_NOT_FOUND);
     }
 
-    return res.status(200).json({
-      status: 200,
-      code: "USER_SEARCH_SUCCESS",
-      message: null,
+    return sendSuccess(res, {
+      ...SUCCESS.USER_SEARCH_SUCCESS,
       data: {
         userId: user.id,
         nickname: user.nickname
@@ -40,12 +32,7 @@ router.get('/search', requireLogin, async (req, res) => {
 
   } catch (error) {
     console.error('User search error:', error);
-    return res.status(500).json({
-      status: 500,
-      code: "INTERNAL_SERVER_ERROR",
-      message: null,
-      data: null
-    });
+    return sendError(res);
   }
 });
 

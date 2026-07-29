@@ -1,0 +1,78 @@
+// 각 라우터에서 공통으로 사용하는 응답 코드(status + code)를 한 곳에서 관리한다.
+// 문자열 리터럴 중복/오타를 막고, FE와 공유하는 코드 스펙 역할을 겸한다.
+
+const SUCCESS = {
+  SIGNUP_SUCCESS: { status: 201, code: 'SIGNUP_SUCCESS' },
+  LOGIN_SUCCESS: { status: 200, code: 'LOGIN_SUCCESS' },
+  LOGOUT_SUCCESS: { status: 200, code: 'LOGOUT_SUCCESS' },
+  SESSION_VALID: { status: 200, code: 'SESSION_VALID' },
+
+  USER_SEARCH_SUCCESS: { status: 200, code: 'USER_SEARCH_SUCCESS' },
+
+  PRODUCT_LIST_SUCCESS: { status: 200, code: 'PRODUCT_LIST_SUCCESS' },
+  PRODUCT_DETAIL_SUCCESS: { status: 200, code: 'PRODUCT_DETAIL_SUCCESS' },
+
+  CATEGORY_LIST_SUCCESS: { status: 200, code: 'CATEGORY_LIST_SUCCESS' },
+
+  WISHLIST_CREATE_SUCCESS: { status: 201, code: 'WISHLIST_CREATE_SUCCESS' },
+  WISHLIST_REMOVE_SUCCESS: { status: 200, code: 'WISHLIST_REMOVE_SUCCESS' },
+  WISHLIST_LIST_SUCCESS: { status: 200, code: 'WISHLIST_LIST_SUCCESS' },
+
+  ORDER_CREATE_SUCCESS: { status: 201, code: 'ORDER_CREATE_SUCCESS' },
+  ORDER_DETAIL_SUCCESS: { status: 200, code: 'ORDER_DETAIL_SUCCESS' },
+
+  GIFT_LIST_SUCCESS: { status: 200, code: 'GIFT_LIST_SUCCESS' },
+  GIFT_DETAIL_SUCCESS: { status: 200, code: 'GIFT_DETAIL_SUCCESS' },
+  GIFT_USE_SUCCESS: { status: 200, code: 'GIFT_USE_SUCCESS' }
+};
+
+const ERROR = {
+  REQUIRED_EMAIL: { status: 400, code: 'REQUIRED_EMAIL' },
+  INVALID_EMAIL_TYPE: { status: 400, code: 'INVALID_EMAIL_TYPE' },
+  INVALID_EMAIL_FORMAT: { status: 400, code: 'INVALID_EMAIL_FORMAT' },
+  EMAIL_TOO_LONG: { status: 400, code: 'EMAIL_TOO_LONG' },
+  REQUIRED_PASSWORD: { status: 400, code: 'REQUIRED_PASSWORD' },
+  INVALID_PASSWORD_TYPE: { status: 400, code: 'INVALID_PASSWORD_TYPE' },
+  INVALID_PASSWORD_FORMAT: { status: 400, code: 'INVALID_PASSWORD_FORMAT' },
+  PASSWORD_TOO_SHORT: { status: 400, code: 'PASSWORD_TOO_SHORT' },
+  PASSWORD_TOO_LONG: { status: 400, code: 'PASSWORD_TOO_LONG' },
+  COMMON_PASSWORD: { status: 400, code: 'COMMON_PASSWORD' },
+  REQUIRED_NICKNAME: { status: 400, code: 'REQUIRED_NICKNAME' },
+  INVALID_NICKNAME_TYPE: { status: 400, code: 'INVALID_NICKNAME_TYPE' },
+  INVALID_NICKNAME_FORMAT: { status: 400, code: 'INVALID_NICKNAME_FORMAT' },
+  NICKNAME_TOO_SHORT: { status: 400, code: 'NICKNAME_TOO_SHORT' },
+  NICKNAME_TOO_LONG: { status: 400, code: 'NICKNAME_TOO_LONG' },
+  EMAIL_ALREADY_EXISTS: { status: 409, code: 'EMAIL_ALREADY_EXISTS' },
+  NICKNAME_ALREADY_EXISTS: { status: 409, code: 'NICKNAME_ALREADY_EXISTS' },
+  INVALID_EMAIL_OR_PASSWORD: { status: 401, code: 'INVALID_EMAIL_OR_PASSWORD' },
+  UNAUTHORIZED: { status: 401, code: 'UNAUTHORIZED' },
+
+  USER_NOT_FOUND: { status: 404, code: 'USER_NOT_FOUND' },
+
+  PRODUCT_NOT_FOUND: { status: 404, code: 'PRODUCT_NOT_FOUND' },
+  INVALID_PRODUCT_ID: { status: 400, code: 'INVALID_PRODUCT_ID' },
+  INVALID_CATEGORY_ID: { status: 400, code: 'INVALID_CATEGORY_ID' },
+  INVALID_KEYWORD: { status: 400, code: 'INVALID_KEYWORD' },
+
+  PRODUCT_ALREADY_WISHED: { status: 409, code: 'PRODUCT_ALREADY_WISHED' },
+  WISHLIST_NOT_FOUND: { status: 404, code: 'WISHLIST_NOT_FOUND' },
+
+  // 향후 카테고리 삭제 API에서 FK RESTRICT 위반을 변환할 때 사용할 예약 코드다.
+  CATEGORY_IN_USE: { status: 409, code: 'CATEGORY_IN_USE' },
+
+  REQUIRED_PRODUCT_ID: { status: 400, code: 'REQUIRED_PRODUCT_ID' },
+  REQUIRED_IS_SELF_GIFT: { status: 400, code: 'REQUIRED_IS_SELF_GIFT' },
+  REQUIRED_RECEIVER_ID: { status: 400, code: 'REQUIRED_RECEIVER_ID' },
+  CANNOT_GIFT_TO_SELF: { status: 400, code: 'CANNOT_GIFT_TO_SELF' },
+  RECEIVER_NOT_FOUND: { status: 404, code: 'RECEIVER_NOT_FOUND' },
+  ORDER_NOT_FOUND: { status: 404, code: 'ORDER_NOT_FOUND' },
+  FORBIDDEN_NOT_OWNER: { status: 403, code: 'FORBIDDEN_NOT_OWNER' },
+
+  GIFT_NOT_FOUND: { status: 404, code: 'GIFT_NOT_FOUND' },
+  GIFT_ALREADY_USED: { status: 409, code: 'GIFT_ALREADY_USED' },
+
+  NOT_IMPLEMENTED: { status: 501, code: 'NOT_IMPLEMENTED' },
+  INTERNAL_SERVER_ERROR: { status: 500, code: 'INTERNAL_SERVER_ERROR' }
+};
+
+module.exports = { SUCCESS, ERROR };
