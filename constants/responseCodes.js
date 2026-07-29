@@ -71,6 +71,7 @@ const ERROR = {
   GIFT_NOT_FOUND: { status: 404, code: 'GIFT_NOT_FOUND' },
   GIFT_ALREADY_USED: { status: 409, code: 'GIFT_ALREADY_USED' },
 
+  NOT_IMPLEMENTED: { status: 501, code: 'NOT_IMPLEMENTED' },
   INTERNAL_SERVER_ERROR: { status: 500, code: 'INTERNAL_SERVER_ERROR' }
 };
 
