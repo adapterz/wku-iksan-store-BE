@@ -44,6 +44,46 @@ describe('GET /api/gifts', () => {
     expect(res.body.data[0]).toMatchObject({ giftId: 10, isSelfGift: false });
     expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, undefined);
   });
+
+  test('status=unused 쿼리를 모델에 그대로 전달', async () => {
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/gifts').query({ status: 'unused' });
+
+    expect(res.status).toBe(200);
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'unused');
+  });
+
+  test('status=used 쿼리를 모델에 그대로 전달', async () => {
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/gifts').query({ status: 'used' });
+
+    expect(res.status).toBe(200);
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'used');
+  });
+
+  test('알 수 없는 status 값도 검증 없이 그대로 모델에 전달', async () => {
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/gifts').query({ status: 'weird' });
+
+    expect(res.status).toBe(200);
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'weird');
+  });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    giftModel.getGiftsByReceiverId.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/gifts');
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  });
 });
 
 describe('GET /api/gifts/:id', () => {
@@ -93,6 +133,16 @@ describe('GET /api/gifts/:id', () => {
     expect(res.body.code).toBe('GIFT_DETAIL_SUCCESS');
     expect(res.body.data.giftId).toBe(10);
     expect(res.body.data.isSelfGift).toBe(true);
+  });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    giftModel.getGiftDetailById.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/gifts/10');
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
   });
 });
 
@@ -144,5 +194,15 @@ describe('PATCH /api/gifts/:id/use', () => {
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('GIFT_USE_SUCCESS');
     expect(res.body.data).toEqual({ giftId: 10, status: 'used', usedAt: '2026-07-29T00:00:00.000Z' });
+  });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    giftModel.getGiftDetailById.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).patch('/api/gifts/10/use');
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
   });
 });

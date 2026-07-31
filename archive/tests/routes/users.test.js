@@ -50,4 +50,14 @@ describe('GET /api/users/search', () => {
     expect(res.body.data).toEqual({ userId: 7, nickname: 'aon' });
     expect(userModel.getUserByNickname).toHaveBeenCalledWith('aon');
   });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    userModel.getUserByNickname.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).get('/api/users/search').query({ nickname: 'aon' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  });
 });

@@ -77,4 +77,14 @@ describe('GET /api/products/:id', () => {
       usageInfo: '사용법'
     });
   });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    productModel.getProductById.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get('/api/products/1');
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  });
 });
