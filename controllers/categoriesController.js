@@ -1,0 +1,14 @@
+const { sendError } = require('../routes/api');
+const { ERROR } = require('../constants/responseCodes');
+
+// M3 설계 승인 후 실제 카테고리 목록 조회 로직으로 교체한다.
+function getCategories(req, res) {
+  return sendError(res, {
+    ...ERROR.NOT_IMPLEMENTED,
+    message: '카테고리 목록 조회 API는 아직 구현되지 않았습니다.'
+  });
+}
+
+module.exports = {
+  getCategories
+};
