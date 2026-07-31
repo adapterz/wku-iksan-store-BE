@@ -91,6 +91,16 @@ describe('GET /api/gifts/:id', () => {
     jest.resetAllMocks();
   });
 
+  test('로그인하지 않으면 401 UNAUTHORIZED', async () => {
+    const app = createTestApp('/api/gifts', giftsRouter, { session: {} });
+
+    const res = await request(app).get('/api/gifts/10');
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('UNAUTHORIZED');
+    expect(giftModel.getGiftDetailById).not.toHaveBeenCalled();
+  });
+
   test('선물이 없으면 404 GIFT_NOT_FOUND', async () => {
     giftModel.getGiftDetailById.mockResolvedValue(null);
     const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
@@ -149,6 +159,16 @@ describe('GET /api/gifts/:id', () => {
 describe('PATCH /api/gifts/:id/use', () => {
   afterEach(() => {
     jest.resetAllMocks();
+  });
+
+  test('로그인하지 않으면 401 UNAUTHORIZED', async () => {
+    const app = createTestApp('/api/gifts', giftsRouter, { session: {} });
+
+    const res = await request(app).patch('/api/gifts/10/use');
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('UNAUTHORIZED');
+    expect(giftModel.getGiftDetailById).not.toHaveBeenCalled();
   });
 
   test('선물이 없으면 404 GIFT_NOT_FOUND', async () => {
