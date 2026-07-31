@@ -16,6 +16,16 @@ describe('POST /api/orders', () => {
     jest.resetAllMocks();
   });
 
+  test('로그인하지 않으면 401 UNAUTHORIZED', async () => {
+    const app = createTestApp('/api/orders', ordersRouter, { session: {} });
+
+    const res = await request(app).post('/api/orders').send({ productId: 1, isSelfGift: true });
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('UNAUTHORIZED');
+    expect(productModel.getProductById).not.toHaveBeenCalled();
+  });
+
   test('productId가 없으면 400 REQUIRED_PRODUCT_ID', async () => {
     const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
 
@@ -92,11 +102,50 @@ describe('POST /api/orders', () => {
       1, 1, 1, 1000, null, true, expect.any(String)
     );
   });
+
+  test('타인에게 선물이 정상 생성되면 201과 orderId/giftId 반환', async () => {
+    productModel.getProductById.mockResolvedValue({ id: 5, price: 3000 });
+    userModel.getUserById.mockResolvedValue({ id: 2 });
+    orderModel.createOrderWithGift.mockResolvedValue({ orderId: 101, giftId: 201 });
+    const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
+
+    const res = await request(app)
+      .post('/api/orders')
+      .send({ productId: 5, isSelfGift: false, receiverId: 2, message: '생일 축하해요' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.code).toBe('ORDER_CREATE_SUCCESS');
+    expect(res.body.data).toEqual({ orderId: 101, giftId: 201 });
+    expect(userModel.getUserById).toHaveBeenCalledWith(2);
+    expect(orderModel.createOrderWithGift).toHaveBeenCalledWith(
+      1, 5, 2, 3000, '생일 축하해요', false, expect.any(String)
+    );
+  });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    productModel.getProductById.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
+
+    const res = await request(app).post('/api/orders').send({ productId: 1, isSelfGift: true });
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  });
 });
 
 describe('GET /api/orders/:id', () => {
   afterEach(() => {
     jest.resetAllMocks();
+  });
+
+  test('로그인하지 않으면 401 UNAUTHORIZED', async () => {
+    const app = createTestApp('/api/orders', ordersRouter, { session: {} });
+
+    const res = await request(app).get('/api/orders/1');
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('UNAUTHORIZED');
+    expect(orderModel.getOrderById).not.toHaveBeenCalled();
   });
 
   test('주문이 없으면 404 ORDER_NOT_FOUND', async () => {
@@ -145,5 +194,15 @@ describe('GET /api/orders/:id', () => {
     expect(res.body.data.orderId).toBe(1);
     expect(res.body.data.giftId).toBe(5);
     expect(res.body.data.receiver).toEqual({ userId: 1, nickname: 'aon' });
+  });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    orderModel.getOrderById.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/orders/1');
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
   });
 });
