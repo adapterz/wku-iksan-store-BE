@@ -11,8 +11,8 @@ CREATE TABLE users (
 
 CREATE TABLE products (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name            VARCHAR(255) NOT NULL,
-    brand           VARCHAR(255) NOT NULL,
+    name            VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+    brand           VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
     price           INT NOT NULL,
     thumbnail_url   VARCHAR(500),
     description     TEXT,
