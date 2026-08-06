@@ -9,14 +9,25 @@ CREATE TABLE users (
     CONSTRAINT uq_users_nickname UNIQUE (nickname)
 );
 
+CREATE TABLE categories (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name            VARCHAR(50) NOT NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_categories_name UNIQUE (name)
+);
+
 CREATE TABLE products (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name            VARCHAR(255) NOT NULL,
-    brand           VARCHAR(255) NOT NULL,
+    name            VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+    brand           VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
     price           INT NOT NULL,
     thumbnail_url   VARCHAR(500),
     description     TEXT,
-    usage_info      VARCHAR(500)
+    usage_info      VARCHAR(500),
+    category_id     BIGINT NOT NULL,
+
+    CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE orders (
