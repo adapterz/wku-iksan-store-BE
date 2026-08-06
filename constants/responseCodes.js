@@ -55,7 +55,6 @@ const ERROR = {
   INVALID_KEYWORD: { status: 400, code: 'INVALID_KEYWORD' },
 
   PRODUCT_ALREADY_WISHED: { status: 409, code: 'PRODUCT_ALREADY_WISHED' },
-  WISHLIST_NOT_FOUND: { status: 404, code: 'WISHLIST_NOT_FOUND' },
 
   // 향후 카테고리 삭제 API에서 FK RESTRICT 위반을 변환할 때 사용할 예약 코드다.
   CATEGORY_IN_USE: { status: 409, code: 'CATEGORY_IN_USE' },
