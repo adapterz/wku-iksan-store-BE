@@ -1,12 +1,25 @@
-const { sendError } = require('../routes/api');
-const { ERROR } = require('../constants/responseCodes');
+const categoryModel = require('../db/models/categoryModel');
+const { sendSuccess, sendError } = require('../routes/api');
+const { SUCCESS } = require('../constants/responseCodes');
 
-// M3 설계 승인 후 실제 카테고리 목록 조회 로직으로 교체한다.
-function getCategories(req, res) {
-  return sendError(res, {
-    ...ERROR.NOT_IMPLEMENTED,
-    message: '카테고리 목록 조회 API는 아직 구현되지 않았습니다.'
-  });
+// 카테고리 목록 조회 (인증 불필요, id 오름차순 고정 정렬)
+async function getCategories(req, res) {
+  try {
+    const rows = await categoryModel.getAllCategories();
+
+    const categories = rows.map(row => ({
+      id: row.id,
+      name: row.name
+    }));
+
+    return sendSuccess(res, {
+      ...SUCCESS.CATEGORY_LIST_SUCCESS,
+      data: categories
+    });
+  } catch (error) {
+    console.error('Database query error (GET /api/categories):', error);
+    return sendError(res);
+  }
 }
 
 module.exports = {
