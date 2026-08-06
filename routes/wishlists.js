@@ -1,14 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const requireLogin = require('../middlewares/requireLogin');
 const wishlistsController = require('../controllers/wishlistsController');
 
-// M3 설계 승인 후 실제 찜 등록 로직과 로그인 검사를 추가한다.
-router.post('/', wishlistsController.createWishlist);
-
-// M3 설계 승인 후 실제 찜 해제 로직과 로그인 검사를 추가한다.
-router.delete('/:productId', wishlistsController.removeWishlist);
-
-// M3 설계 승인 후 실제 회원별 찜 목록 조회 로직과 로그인 검사를 추가한다.
-router.get('/', wishlistsController.getWishlists);
+// 모든 찜 API는 로그인 사용자의 세션 ID를 기준으로 본인 데이터만 처리한다.
+router.post('/', requireLogin, wishlistsController.createWishlist);
+router.delete('/:productId', requireLogin, wishlistsController.removeWishlist);
+router.get('/', requireLogin, wishlistsController.getWishlists);
 
 module.exports = router;
