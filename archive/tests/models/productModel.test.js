@@ -55,3 +55,36 @@ describe('productModel.getAllProducts', () => {
     expect(params).toEqual(['%카페%', '%카페%', 1]);
   });
 });
+
+describe('productModel.getProductById', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test('상품 상세 조회 시 카테고리를 조인해 함께 반환', async () => {
+    const product = {
+      id: 1,
+      name: '상품A',
+      category_id: 2,
+      category_name: '간식'
+    };
+    pool.query.mockResolvedValue([[product]]);
+
+    const result = await productModel.getProductById(1);
+    const [query, params] = pool.query.mock.calls[0];
+
+    expect(query).toContain('FROM products p');
+    expect(query).toContain('JOIN categories c ON p.category_id = c.id');
+    expect(query).toContain('WHERE p.id = ?');
+    expect(params).toEqual([1]);
+    expect(result).toEqual(product);
+  });
+
+  test('상품이 없으면 null 반환', async () => {
+    pool.query.mockResolvedValue([[]]);
+
+    const result = await productModel.getProductById(999);
+
+    expect(result).toBeNull();
+  });
+});

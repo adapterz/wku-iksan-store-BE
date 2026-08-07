@@ -41,7 +41,21 @@ const getAllProducts = async ({ keyword = null, categoryId = null } = {}) => {
 };
 
 const getProductById = async (id) => {
-  const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
+  const [rows] = await pool.query(`
+    SELECT
+      p.id,
+      p.name,
+      p.brand,
+      p.price,
+      p.thumbnail_url,
+      p.description,
+      p.usage_info,
+      p.category_id,
+      c.name AS category_name
+    FROM products p
+    JOIN categories c ON p.category_id = c.id
+    WHERE p.id = ?
+  `, [id]);
   return rows.length > 0 ? rows[0] : null;
 };
 

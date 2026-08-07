@@ -56,7 +56,9 @@ async function getProductDetail(req, res) {
         price: product.price,
         thumbnailUrl: product.thumbnail_url,
         description: product.description,
-        usageInfo: product.usage_info
+        usageInfo: product.usage_info,
+        categoryId: product.category_id,
+        categoryName: product.category_name
       }
     });
 

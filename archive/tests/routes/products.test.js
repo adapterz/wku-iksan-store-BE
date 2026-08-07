@@ -144,7 +144,9 @@ describe('GET /api/products/:id', () => {
       price: 1000,
       thumbnail_url: 'a.jpg',
       description: '설명',
-      usage_info: '사용법'
+      usage_info: '사용법',
+      category_id: 2,
+      category_name: '간식'
     });
     const app = createTestApp('/api/products', productsRouter);
 
@@ -159,7 +161,9 @@ describe('GET /api/products/:id', () => {
       price: 1000,
       thumbnailUrl: 'a.jpg',
       description: '설명',
-      usageInfo: '사용법'
+      usageInfo: '사용법',
+      categoryId: 2,
+      categoryName: '간식'
     });
   });
 
