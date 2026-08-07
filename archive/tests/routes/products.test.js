@@ -126,6 +126,19 @@ describe('GET /api/products/:id', () => {
     jest.resetAllMocks();
   });
 
+  test.each(['0', '-1', '1.5', 'abc', '01', '9007199254740992'])(
+    'productId가 양의 정수 경로 값이 아니면 400 INVALID_PRODUCT_ID (%s)',
+    async productId => {
+      const app = createTestApp('/api/products', productsRouter);
+
+      const res = await request(app).get(`/api/products/${productId}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('INVALID_PRODUCT_ID');
+      expect(productModel.getProductById).not.toHaveBeenCalled();
+    }
+  );
+
   test('상품이 없으면 404 PRODUCT_NOT_FOUND', async () => {
     productModel.getProductById.mockResolvedValue(null);
     const app = createTestApp('/api/products', productsRouter);
@@ -134,6 +147,7 @@ describe('GET /api/products/:id', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('PRODUCT_NOT_FOUND');
+    expect(productModel.getProductById).toHaveBeenCalledWith(999);
   });
 
   test('상품이 있으면 상세 필드를 camelCase로 매핑해 반환', async () => {
@@ -154,6 +168,7 @@ describe('GET /api/products/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('PRODUCT_DETAIL_SUCCESS');
+    expect(productModel.getProductById).toHaveBeenCalledWith(1);
     expect(res.body.data).toEqual({
       id: 1,
       name: '상품A',

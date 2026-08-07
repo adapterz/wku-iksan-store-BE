@@ -2,6 +2,7 @@ const productModel = require('../db/models/productModel');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { validateProductListQuery } = require('../validators/productValidator');
+const { parsePositiveInteger } = require('../validators/commonValidator');
 
 // 상품 목록 조회와 상품명·브랜드 검색, 카테고리 필터를 함께 처리한다.
 async function getProducts(req, res) {
@@ -36,10 +37,15 @@ async function getProducts(req, res) {
 // M2 1단계: 상품 상세 조회
 async function getProductDetail(req, res) {
   try {
-    const { id } = req.params;
+    const productId = parsePositiveInteger(req.params.id, { allowString: true });
+
+    // 잘못된 경로 값은 상품 존재 여부를 조회하기 전에 입력 오류로 처리한다.
+    if (productId === null) {
+      return sendError(res, ERROR.INVALID_PRODUCT_ID);
+    }
 
     // 실제 로직: DB 접근 계층(모듈)을 통해 데이터 조회
-    const product = await productModel.getProductById(id);
+    const product = await productModel.getProductById(productId);
 
     if (!product) {
       return sendError(res, ERROR.PRODUCT_NOT_FOUND);
