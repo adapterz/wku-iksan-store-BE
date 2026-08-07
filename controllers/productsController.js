@@ -1,18 +1,26 @@
 const productModel = require('../db/models/productModel');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
+const { validateProductListQuery } = require('../validators/productValidator');
 
-// 상품 목록 조회
+// 상품 목록 조회와 상품명·브랜드 검색, 카테고리 필터를 함께 처리한다.
 async function getProducts(req, res) {
   try {
-    const rows = await productModel.getAllProducts();
+    const validation = validateProductListQuery(req.query);
+    if (validation.errorCode) {
+      return sendError(res, ERROR[validation.errorCode]);
+    }
+
+    const rows = await productModel.getAllProducts(validation.value);
 
     const products = rows.map(row => ({
       id: row.id,
       name: row.name,
       brand: row.brand,
       price: row.price,
-      thumbnailUrl: row.thumbnail_url
+      thumbnailUrl: row.thumbnail_url,
+      categoryId: row.category_id,
+      categoryName: row.category_name
     }));
 
     return sendSuccess(res, {
