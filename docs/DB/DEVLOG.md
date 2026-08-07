@@ -1,5 +1,28 @@
 # DB 작업 일지 (DEVLOG)
 
+## [2026-08-07] M3 찜 기능 wishlists 테이블 추가
+
+### 1. 배경
+- PR #27에서 구현한 찜 등록·해제·목록 조회 API가 사용할 `wishlists` 테이블을 DB 설계에 반영했습니다.
+- 신규 DB와 기존 운영 DB의 적용 방법을 구분하기 위해 `schema.sql`과 별도 마이그레이션 파일을 함께 작성했습니다.
+
+### 2. 조치 내용
+- `db/schema.sql`에 `wishlists` 테이블을 추가했습니다.
+- 기존 DB 적용용 `db/migrate_wishlists.sql`을 추가했습니다.
+- `user_id`와 `product_id`에 복합 UNIQUE 제약을 적용해 동일 상품 중복 찜을 DB에서 차단합니다.
+- 회원이나 상품 삭제 시 관련 찜 데이터를 함께 정리하도록 두 FK에 `ON DELETE CASCADE`를 적용했습니다.
+- 기존 회원·상품·카테고리 데이터는 변경하지 않습니다.
+
+### 3. 적용 순서 및 확인
+1. 운영 DB 백업
+2. 카테고리 마이그레이션 적용 여부 확인
+3. `SHOW TABLES LIKE 'wishlists';`로 기존 테이블 존재 여부 확인
+4. MySQL 콘솔에서 `SOURCE db/migrate_wishlists.sql;` 실행
+5. `SHOW CREATE TABLE wishlists;`로 UNIQUE, FK, CASCADE 설정 확인
+6. 찜 API 등록·중복 등록·목록·해제 동작 확인
+
+운영 DB 적용은 Cloud 담당자와 적용 시점을 확인한 뒤 별도로 진행합니다.
+
 ## [2026-07-24] users.nickname 대소문자 비구분(case-insensitive) collation 통일
 
 ### 1. 배경 및 사전 확인
