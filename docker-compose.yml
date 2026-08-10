@@ -1,6 +1,6 @@
 services:
   be:
-    image: biohyeok/wku-iksan-store-be:latest
+    image: registry.iksan.store/wku-iksan-store-be:latest
     env_file:
       - .env
     ports:
