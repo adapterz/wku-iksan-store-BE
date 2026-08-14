@@ -57,7 +57,7 @@ const getProductRanking = async () => {
     FROM products p
     JOIN categories c ON p.category_id = c.id
     LEFT JOIN wishlists w ON w.product_id = p.id
-    GROUP BY p.id
+    GROUP BY p.id, c.name
     HAVING wishlist_count > 0
     ORDER BY wishlist_count DESC, p.id ASC
     LIMIT ?

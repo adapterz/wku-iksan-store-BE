@@ -71,7 +71,7 @@ describe('productModel.getProductRanking', () => {
     const [query, params] = pool.query.mock.calls[0];
 
     expect(query).toContain('LEFT JOIN wishlists w ON w.product_id = p.id');
-    expect(query).toContain('GROUP BY p.id');
+    expect(query).toContain('GROUP BY p.id, c.name');
     expect(query).toContain('HAVING wishlist_count > 0');
     expect(query).toContain('ORDER BY wishlist_count DESC, p.id ASC');
     expect(query).toContain('LIMIT ?');
