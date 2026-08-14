@@ -54,6 +54,28 @@ describe('productModel.getAllProducts', () => {
     expect(query).toContain("(p.name LIKE ? ESCAPE '!' OR p.brand LIKE ? ESCAPE '!') AND p.category_id = ?");
     expect(params).toEqual(['%카페%', '%카페%', 1]);
   });
+
+  test('브랜드 필터는 brand를 파라미터로 바인딩', async () => {
+    pool.query.mockResolvedValue([[]]);
+
+    await productModel.getAllProducts({ brand: '익산로컬푸드' });
+    const [query, params] = pool.query.mock.calls[0];
+
+    expect(query).toContain('WHERE p.brand = ?');
+    expect(params).toEqual(['익산로컬푸드']);
+  });
+
+  test('검색어·카테고리·브랜드를 함께 사용하면 AND 조건으로 조회', async () => {
+    pool.query.mockResolvedValue([[]]);
+
+    await productModel.getAllProducts({ keyword: '카페', categoryId: 1, brand: '익산로컬푸드' });
+    const [query, params] = pool.query.mock.calls[0];
+
+    expect(query).toContain(
+      "(p.name LIKE ? ESCAPE '!' OR p.brand LIKE ? ESCAPE '!') AND p.category_id = ? AND p.brand = ?"
+    );
+    expect(params).toEqual(['%카페%', '%카페%', 1, '익산로컬푸드']);
+  });
 });
 
 describe('productModel.getProductById', () => {

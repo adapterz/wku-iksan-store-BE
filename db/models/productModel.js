@@ -3,7 +3,7 @@ const pool = require('../pool');
 // LIKE에서 의미가 있는 문자도 사용자가 입력한 일반 문자 그대로 검색한다.
 const escapeLikePattern = (keyword) => keyword.replace(/[!%_]/g, character => `!${character}`);
 
-const getAllProducts = async ({ keyword = null, categoryId = null } = {}) => {
+const getAllProducts = async ({ keyword = null, categoryId = null, brand = null } = {}) => {
   const conditions = [];
   const params = [];
 
@@ -16,6 +16,11 @@ const getAllProducts = async ({ keyword = null, categoryId = null } = {}) => {
   if (categoryId !== null) {
     conditions.push('p.category_id = ?');
     params.push(categoryId);
+  }
+
+  if (brand !== null) {
+    conditions.push('p.brand = ?');
+    params.push(brand);
   }
 
   const whereClause = conditions.length > 0
