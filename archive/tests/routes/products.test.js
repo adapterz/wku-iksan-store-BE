@@ -121,6 +121,87 @@ describe('GET /api/products', () => {
   });
 });
 
+describe('GET /api/products/ranking', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test('찜 개수와 순위를 포함해 랭킹 목록을 반환', async () => {
+    productModel.getProductRanking.mockResolvedValue([
+      {
+        id: 1,
+        name: '상품A',
+        brand: '브랜드A',
+        price: 1000,
+        thumbnail_url: 'a.jpg',
+        category_id: 2,
+        category_name: '간식',
+        wishlist_count: 5
+      },
+      {
+        id: 2,
+        name: '상품B',
+        brand: '브랜드B',
+        price: 2000,
+        thumbnail_url: 'b.jpg',
+        category_id: 3,
+        category_name: '음료',
+        wishlist_count: 3
+      }
+    ]);
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get('/api/products/ranking');
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('PRODUCT_RANKING_SUCCESS');
+    expect(res.body.data).toEqual([
+      {
+        rank: 1,
+        id: 1,
+        name: '상품A',
+        brand: '브랜드A',
+        price: 1000,
+        thumbnailUrl: 'a.jpg',
+        categoryId: 2,
+        categoryName: '간식',
+        wishlistCount: 5
+      },
+      {
+        rank: 2,
+        id: 2,
+        name: '상품B',
+        brand: '브랜드B',
+        price: 2000,
+        thumbnailUrl: 'b.jpg',
+        categoryId: 3,
+        categoryName: '음료',
+        wishlistCount: 3
+      }
+    ]);
+  });
+
+  test('찜한 상품이 없으면 빈 배열 반환', async () => {
+    productModel.getProductRanking.mockResolvedValue([]);
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get('/api/products/ranking');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([]);
+  });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    productModel.getProductRanking.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get('/api/products/ranking');
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  });
+});
+
 describe('GET /api/products/:id', () => {
   afterEach(() => {
     jest.resetAllMocks();

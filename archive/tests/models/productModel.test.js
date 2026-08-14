@@ -56,6 +56,30 @@ describe('productModel.getAllProducts', () => {
   });
 });
 
+describe('productModel.getProductRanking', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test('찜 개수 내림차순으로 정렬하고 찜이 없는 상품은 제외', async () => {
+    const rows = [
+      { id: 1, category_id: 1, category_name: '음료', wishlist_count: 5 }
+    ];
+    pool.query.mockResolvedValue([rows]);
+
+    const result = await productModel.getProductRanking();
+    const [query, params] = pool.query.mock.calls[0];
+
+    expect(query).toContain('LEFT JOIN wishlists w ON w.product_id = p.id');
+    expect(query).toContain('GROUP BY p.id');
+    expect(query).toContain('HAVING wishlist_count > 0');
+    expect(query).toContain('ORDER BY wishlist_count DESC, p.id ASC');
+    expect(query).toContain('LIMIT ?');
+    expect(params).toEqual([productModel.PRODUCT_RANKING_LIMIT]);
+    expect(result).toEqual(rows);
+  });
+});
+
 describe('productModel.getProductById', () => {
   afterEach(() => {
     jest.resetAllMocks();
