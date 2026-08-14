@@ -53,7 +53,37 @@ VALUES
 
 ('익산 함라 한옥마을 체험권', '함라한옥체험관', 25000, 'https://placehold.co/300x300', '익산 함라 지역의 전통 문화를 체험할 수 있는 이용권입니다.', '사전 예약 후 방문하여 이용 가능합니다.', (SELECT id FROM categories WHERE name = '체험·관광이용권')),
 
-('익산 로컬 와인 선물세트', '익산와이너리', 40000, 'https://placehold.co/300x300', '익산 지역에서 생산된 농산물을 활용한 로컬 와인 세트입니다.', '직사광선을 피해 서늘한 곳에 보관해주세요.', (SELECT id FROM categories WHERE name = '지역특산 선물세트'));
+('익산 로컬 와인 선물세트', '익산와이너리', 40000, 'https://placehold.co/300x300', '익산 지역에서 생산된 농산물을 활용한 로컬 와인 세트입니다.', '직사광선을 피해 서늘한 곳에 보관해주세요.', (SELECT id FROM categories WHERE name = '지역특산 선물세트')),
+
+('익산 제철 채소 꾸러미', '익산로컬푸드', 22000, 'https://placehold.co/300x300', '익산 지역 농가에서 수확한 제철 채소로 구성한 꾸러미입니다.', '수령 후 냉장 보관하고 신선할 때 섭취해주세요.', (SELECT id FROM categories WHERE name = '축산·농산물')),
+
+('익산 로컬 과일 바구니', '익산로컬푸드', 28000, 'https://placehold.co/300x300', '익산 지역에서 생산한 제철 과일을 담은 바구니입니다.', '수령 후 냉장 보관하고 빠른 섭취를 권장합니다.', (SELECT id FROM categories WHERE name = '축산·농산물')),
+
+('익산 농가 가공식품 선물세트', '익산로컬푸드', 42000, 'https://placehold.co/300x300', '익산 농가의 농산물로 만든 가공식품을 모은 선물세트입니다.', '제품별 보관 방법과 소비기한을 확인해주세요.', (SELECT id FROM categories WHERE name = '지역특산 선물세트')),
+
+('익산 시그니처 블렌드 원두', '익산로스터리', 14000, 'https://placehold.co/300x300', '익산로스터리만의 배합으로 완성한 시그니처 원두입니다.', '개봉 후 밀봉하여 서늘하고 건조한 곳에 보관하세요.', (SELECT id FROM categories WHERE name = '음료')),
+
+('익산 싱글오리진 드립백 세트', '익산로스터리', 18000, 'https://placehold.co/300x300', '다양한 산지의 싱글오리진 커피를 간편하게 즐기는 드립백 세트입니다.', '드립백을 개봉한 후 뜨거운 물을 부어 추출해주세요.', (SELECT id FROM categories WHERE name = '음료')),
+
+('익산 콜드브루 원액 세트', '익산로스터리', 22000, 'https://placehold.co/300x300', '저온 추출 방식으로 만든 진한 콜드브루 원액 세트입니다.', '개봉 후 냉장 보관하고 물이나 우유에 희석해 이용하세요.', (SELECT id FROM categories WHERE name = '음료')),
+
+('익산 디카페인 원두', '익산로스터리', 17000, 'https://placehold.co/300x300', '카페인 부담을 줄이고 풍미를 살린 디카페인 원두입니다.', '개봉 후 밀봉하여 서늘하고 건조한 곳에 보관하세요.', (SELECT id FROM categories WHERE name = '음료')),
+
+('익산 신동진쌀 5kg', '익산농협', 22000, 'https://placehold.co/300x300', '익산 지역에서 생산한 신동진 품종 쌀 상품입니다.', '직사광선과 습기를 피해 서늘한 곳에 보관해주세요.', (SELECT id FROM categories WHERE name = '축산·농산물')),
+
+('익산 현미 2kg', '익산농협', 12000, 'https://placehold.co/300x300', '익산 지역에서 생산한 현미를 선별하여 포장한 상품입니다.', '밀봉 후 서늘하고 건조한 곳에 보관해주세요.', (SELECT id FROM categories WHERE name = '축산·농산물')),
+
+('익산 오곡 잡곡 세트', '익산농협', 18000, 'https://placehold.co/300x300', '익산에서 생산한 여러 곡물을 알맞게 구성한 잡곡 세트입니다.', '개봉 후 밀봉하여 냉장 보관을 권장합니다.', (SELECT id FROM categories WHERE name = '축산·농산물')),
+
+('익산 찹쌀 2kg', '익산농협', 14000, 'https://placehold.co/300x300', '찰기가 좋고 부드러운 익산 지역 찹쌀 상품입니다.', '직사광선을 피해 서늘하고 건조한 곳에 보관해주세요.', (SELECT id FROM categories WHERE name = '축산·농산물')),
+
+('익산 전통 약과 선물세트', '익산전통식품', 18000, 'https://placehold.co/300x300', '전통 방식으로 만든 약과를 정갈하게 구성한 선물세트입니다.', '개봉 후 밀봉 보관하고 빠른 섭취를 권장합니다.', (SELECT id FROM categories WHERE name = '베이커리·간식')),
+
+('익산 유과 모음 세트', '익산전통식품', 22000, 'https://placehold.co/300x300', '다양한 맛의 전통 유과를 한 상자에 담은 모음 세트입니다.', '습기를 피해 밀봉 보관하고 개봉 후 빠르게 섭취해주세요.', (SELECT id FROM categories WHERE name = '베이커리·간식')),
+
+('익산 전통 떡 선물세트', '익산전통식품', 28000, 'https://placehold.co/300x300', '익산 지역 쌀을 활용해 만든 다양한 전통 떡 선물세트입니다.', '수령 후 냉장 보관하고 빠른 섭취를 권장합니다.', (SELECT id FROM categories WHERE name = '베이커리·간식')),
+
+('익산 전통 장류 세트', '익산전통식품', 35000, 'https://placehold.co/300x300', '전통 방식으로 숙성한 된장과 고추장으로 구성한 장류 세트입니다.', '개봉 후 냉장 보관하고 제품별 소비기한을 확인해주세요.', (SELECT id FROM categories WHERE name = '지역특산 선물세트'));
 
 INSERT IGNORE INTO users
 (email, password, nickname)
