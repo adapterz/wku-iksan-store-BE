@@ -6,11 +6,48 @@ const escapeLikePattern = (keyword) => keyword.replace(/[!%_]/g, character => `!
 const getAllProducts = async ({ keyword = null, categoryId = null, brand = null } = {}) => {
   const conditions = [];
   const params = [];
+  const relevanceParams = [];
+  let orderByClause = '';
 
   if (keyword !== null) {
-    const likePattern = `%${escapeLikePattern(keyword)}%`;
-    conditions.push("(p.name LIKE ? ESCAPE '!' OR p.brand LIKE ? ESCAPE '!')");
-    params.push(likePattern, likePattern);
+    // 공백으로 나눈 모든 단어가 상품명 또는 브랜드명 중 하나에 포함되어야 한다.
+    const searchTerms = keyword.split(/\s+/).filter(Boolean);
+
+    searchTerms.forEach(term => {
+      const likePattern = `%${escapeLikePattern(term)}%`;
+      conditions.push("(p.name LIKE ? ESCAPE '!' OR p.brand LIKE ? ESCAPE '!')");
+      params.push(likePattern, likePattern);
+    });
+
+    // 여러 공백은 하나로 통일해 전체 검색어의 일치 정도를 정렬에 사용한다.
+    const normalizedKeyword = searchTerms.join(' ');
+    const escapedKeyword = escapeLikePattern(normalizedKeyword);
+    const startsWithPattern = `${escapedKeyword}%`;
+    const containsPattern = `%${escapedKeyword}%`;
+
+    orderByClause = `
+      ORDER BY CASE
+        WHEN p.name = ? THEN 1
+        WHEN p.brand = ? THEN 2
+        WHEN p.name LIKE ? ESCAPE '!' THEN 3
+        WHEN p.brand LIKE ? ESCAPE '!' THEN 4
+        WHEN p.name LIKE ? ESCAPE '!' THEN 5
+        WHEN p.brand LIKE ? ESCAPE '!' THEN 6
+        ELSE 7
+      END,
+      p.id ASC
+    `;
+
+    // ORDER BY의 플레이스홀더는 WHERE와 필터 조건 뒤에 나타나므로 마지막에 추가한다.
+    // 실제 추가는 categoryId·brand 조건을 모두 구성한 뒤 수행한다.
+    relevanceParams.push(
+      normalizedKeyword,
+      normalizedKeyword,
+      startsWithPattern,
+      startsWithPattern,
+      containsPattern,
+      containsPattern
+    );
   }
 
   if (categoryId !== null) {
@@ -27,6 +64,10 @@ const getAllProducts = async ({ keyword = null, categoryId = null, brand = null 
     ? `WHERE ${conditions.join(' AND ')}`
     : '';
 
+  if (keyword !== null) {
+    params.push(...relevanceParams);
+  }
+
   const query = `
     SELECT
       p.id,
@@ -39,6 +80,7 @@ const getAllProducts = async ({ keyword = null, categoryId = null, brand = null 
     FROM products p
     JOIN categories c ON p.category_id = c.id
     ${whereClause}
+    ${orderByClause}
   `;
 
   const [rows] = await pool.query(query, params);
