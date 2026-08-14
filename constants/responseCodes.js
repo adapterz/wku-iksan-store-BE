@@ -53,6 +53,7 @@ const ERROR = {
   INVALID_PRODUCT_ID: { status: 400, code: 'INVALID_PRODUCT_ID' },
   INVALID_CATEGORY_ID: { status: 400, code: 'INVALID_CATEGORY_ID' },
   INVALID_KEYWORD: { status: 400, code: 'INVALID_KEYWORD' },
+  INVALID_BRAND: { status: 400, code: 'INVALID_BRAND' },
 
   PRODUCT_ALREADY_WISHED: { status: 409, code: 'PRODUCT_ALREADY_WISHED' },
 

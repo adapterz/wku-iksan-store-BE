@@ -30,7 +30,8 @@ describe('GET /api/products', () => {
     expect(res.body.code).toBe('PRODUCT_LIST_SUCCESS');
     expect(productModel.getAllProducts).toHaveBeenCalledWith({
       keyword: null,
-      categoryId: null
+      categoryId: null,
+      brand: null
     });
     expect(res.body.data).toEqual([
       {
@@ -54,7 +55,8 @@ describe('GET /api/products', () => {
     expect(res.status).toBe(200);
     expect(productModel.getAllProducts).toHaveBeenCalledWith({
       keyword: '아메리카노',
-      categoryId: null
+      categoryId: null,
+      brand: null
     });
     expect(res.body.data).toEqual([]);
   });
@@ -68,7 +70,8 @@ describe('GET /api/products', () => {
     expect(res.status).toBe(200);
     expect(productModel.getAllProducts).toHaveBeenCalledWith({
       keyword: null,
-      categoryId: 2
+      categoryId: 2,
+      brand: null
     });
   });
 
@@ -81,8 +84,39 @@ describe('GET /api/products', () => {
     expect(res.status).toBe(200);
     expect(productModel.getAllProducts).toHaveBeenCalledWith({
       keyword: '카페',
-      categoryId: 1
+      categoryId: 1,
+      brand: null
     });
+  });
+
+  test('brand를 전달하면 앞뒤 공백을 제거해 모델에 전달', async () => {
+    productModel.getAllProducts.mockResolvedValue([]);
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get('/api/products?brand=%20익산로컬푸드%20');
+
+    expect(res.status).toBe(200);
+    expect(productModel.getAllProducts).toHaveBeenCalledWith({
+      keyword: null,
+      categoryId: null,
+      brand: '익산로컬푸드'
+    });
+    expect(res.body.data).toEqual([]);
+  });
+
+  test.each([
+    '/api/products?brand=',
+    '/api/products?brand=%20%20',
+    `/api/products?brand=${'a'.repeat(256)}`,
+    '/api/products?brand=a&brand=b'
+  ])('잘못된 brand는 400 INVALID_BRAND (%s)', async (path) => {
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get(path);
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_BRAND');
+    expect(productModel.getAllProducts).not.toHaveBeenCalled();
   });
 
   test.each([
