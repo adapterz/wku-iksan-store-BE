@@ -70,7 +70,7 @@ describe('productModel.getAllProducts', () => {
     ]);
   });
 
-  test('다중 단어는 공백으로 분리하고 모든 단어를 AND 조건으로 조회', async () => {
+  test('다중 단어는 AND 조회하고 전체 문구와 단어별 관련도로 정렬', async () => {
     pool.query.mockResolvedValue([[]]);
 
     await productModel.getAllProducts({ keyword: '익산   커피' });
@@ -80,6 +80,8 @@ describe('productModel.getAllProducts', () => {
       "(p.name LIKE ? ESCAPE '!' OR p.brand LIKE ? ESCAPE '!') AND " +
       "(p.name LIKE ? ESCAPE '!' OR p.brand LIKE ? ESCAPE '!')"
     );
+    // 전체 문구 CASE 1개와 검색 단어별 CASE 2개가 모두 정렬에 사용된다.
+    expect(query.match(/WHEN p\.name = \? THEN 1/g)).toHaveLength(3);
     expect(params).toEqual([
       '%익산%',
       '%익산%',
@@ -90,8 +92,29 @@ describe('productModel.getAllProducts', () => {
       '익산 커피%',
       '익산 커피%',
       '%익산 커피%',
-      '%익산 커피%'
+      '%익산 커피%',
+      '익산',
+      '익산',
+      '익산%',
+      '익산%',
+      '%익산%',
+      '%익산%',
+      '커피',
+      '커피',
+      '커피%',
+      '커피%',
+      '%커피%',
+      '%커피%'
     ]);
+  });
+
+  test('빈 문자열이나 공백 검색어는 DB 조회 전에 거부', async () => {
+    await expect(productModel.getAllProducts({ keyword: '' }))
+      .rejects.toThrow('keyword must be a non-empty string');
+    await expect(productModel.getAllProducts({ keyword: '   ' }))
+      .rejects.toThrow('keyword must be a non-empty string');
+
+    expect(pool.query).not.toHaveBeenCalled();
   });
 
   test('카테고리 필터는 category_id를 파라미터로 바인딩', async () => {
