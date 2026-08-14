@@ -34,6 +34,33 @@ async function getProducts(req, res) {
   }
 }
 
+// 찜 개수 기준 인기 상품 랭킹 조회
+async function getProductRanking(req, res) {
+  try {
+    const rows = await productModel.getProductRanking();
+
+    const products = rows.map((row, index) => ({
+      rank: index + 1,
+      id: row.id,
+      name: row.name,
+      brand: row.brand,
+      price: row.price,
+      thumbnailUrl: row.thumbnail_url,
+      categoryId: row.category_id,
+      categoryName: row.category_name,
+      wishlistCount: row.wishlist_count
+    }));
+
+    return sendSuccess(res, {
+      ...SUCCESS.PRODUCT_RANKING_SUCCESS,
+      data: products
+    });
+  } catch (error) {
+    console.error('Database query error (GET /api/products/ranking):', error);
+    return sendError(res);
+  }
+}
+
 // M2 1단계: 상품 상세 조회
 async function getProductDetail(req, res) {
   try {
@@ -76,5 +103,6 @@ async function getProductDetail(req, res) {
 
 module.exports = {
   getProducts,
+  getProductRanking,
   getProductDetail
 };
