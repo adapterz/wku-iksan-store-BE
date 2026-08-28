@@ -4,6 +4,7 @@ const { createTestApp } = require('../helpers/testApp');
 jest.mock('../../../db/models/productModel');
 const productModel = require('../../../db/models/productModel');
 const productsRouter = require('../../../routes/products');
+const productsController = require('../../../controllers/productsController');
 
 describe('GET /api/products', () => {
   afterEach(() => {
@@ -30,7 +31,8 @@ describe('GET /api/products', () => {
     expect(res.body.code).toBe('PRODUCT_LIST_SUCCESS');
     expect(productModel.getAllProducts).toHaveBeenCalledWith({
       keyword: null,
-      categoryId: null
+      categoryId: null,
+      brand: null
     });
     expect(res.body.data).toEqual([
       {
@@ -54,7 +56,8 @@ describe('GET /api/products', () => {
     expect(res.status).toBe(200);
     expect(productModel.getAllProducts).toHaveBeenCalledWith({
       keyword: '아메리카노',
-      categoryId: null
+      categoryId: null,
+      brand: null
     });
     expect(res.body.data).toEqual([]);
   });
@@ -68,7 +71,8 @@ describe('GET /api/products', () => {
     expect(res.status).toBe(200);
     expect(productModel.getAllProducts).toHaveBeenCalledWith({
       keyword: null,
-      categoryId: 2
+      categoryId: 2,
+      brand: null
     });
   });
 
@@ -81,8 +85,39 @@ describe('GET /api/products', () => {
     expect(res.status).toBe(200);
     expect(productModel.getAllProducts).toHaveBeenCalledWith({
       keyword: '카페',
-      categoryId: 1
+      categoryId: 1,
+      brand: null
     });
+  });
+
+  test('brand를 전달하면 앞뒤 공백을 제거해 모델에 전달', async () => {
+    productModel.getAllProducts.mockResolvedValue([]);
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get('/api/products?brand=%20익산로컬푸드%20');
+
+    expect(res.status).toBe(200);
+    expect(productModel.getAllProducts).toHaveBeenCalledWith({
+      keyword: null,
+      categoryId: null,
+      brand: '익산로컬푸드'
+    });
+    expect(res.body.data).toEqual([]);
+  });
+
+  test.each([
+    '/api/products?brand=',
+    '/api/products?brand=%20%20',
+    `/api/products?brand=${'a'.repeat(256)}`,
+    '/api/products?brand=a&brand=b'
+  ])('잘못된 brand는 400 INVALID_BRAND (%s)', async (path) => {
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get(path);
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_BRAND');
+    expect(productModel.getAllProducts).not.toHaveBeenCalled();
   });
 
   test.each([
@@ -115,6 +150,176 @@ describe('GET /api/products', () => {
     const app = createTestApp('/api/products', productsRouter);
 
     const res = await request(app).get('/api/products');
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  });
+});
+
+describe('GET /api/products/ranking', () => {
+  afterEach(() => {
+    productsController.resetRankingCache();
+    jest.resetAllMocks();
+    jest.useRealTimers();
+  });
+
+  test('찜 개수와 순위를 포함해 랭킹 목록을 반환', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-22T08:30:00.000Z'));
+    productModel.getProductRanking.mockResolvedValue([
+      {
+        id: 1,
+        name: '상품A',
+        brand: '브랜드A',
+        price: 1000,
+        thumbnail_url: 'a.jpg',
+        category_id: 2,
+        category_name: '간식',
+        wishlist_count: 5
+      },
+      {
+        id: 2,
+        name: '상품B',
+        brand: '브랜드B',
+        price: 2000,
+        thumbnail_url: 'b.jpg',
+        category_id: 3,
+        category_name: '음료',
+        wishlist_count: 3
+      }
+    ]);
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get('/api/products/ranking');
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('PRODUCT_RANKING_SUCCESS');
+    expect(res.body.meta).toEqual({
+      computedAt: '2026-08-22T08:30:00.000Z'
+    });
+    expect(res.body.data).toEqual([
+      {
+        rank: 1,
+        id: 1,
+        name: '상품A',
+        brand: '브랜드A',
+        price: 1000,
+        thumbnailUrl: 'a.jpg',
+        categoryId: 2,
+        categoryName: '간식',
+        wishlistCount: 5
+      },
+      {
+        rank: 2,
+        id: 2,
+        name: '상품B',
+        brand: '브랜드B',
+        price: 2000,
+        thumbnailUrl: 'b.jpg',
+        categoryId: 3,
+        categoryName: '음료',
+        wishlistCount: 3
+      }
+    ]);
+  });
+
+  test('찜한 상품이 없으면 빈 배열 반환', async () => {
+    productModel.getProductRanking.mockResolvedValue([]);
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get('/api/products/ranking');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([]);
+  });
+
+  test('5분 이내 요청은 같은 랭킹과 계산 시각을 반환하고 DB를 다시 조회하지 않음', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-22T08:30:00.000Z'));
+    productModel.getProductRanking.mockResolvedValue([
+      {
+        id: 1,
+        name: '상품A',
+        brand: '브랜드A',
+        price: 1000,
+        thumbnail_url: 'a.jpg',
+        category_id: 2,
+        category_name: '간식',
+        wishlist_count: 5
+      }
+    ]);
+    const app = createTestApp('/api/products', productsRouter);
+
+    const firstResponse = await request(app).get('/api/products/ranking');
+    jest.setSystemTime(new Date('2026-08-22T08:34:59.000Z'));
+    const secondResponse = await request(app).get('/api/products/ranking');
+
+    expect(productModel.getProductRanking).toHaveBeenCalledTimes(1);
+    expect(secondResponse.body.data).toEqual(firstResponse.body.data);
+    expect(secondResponse.body.meta).toEqual(firstResponse.body.meta);
+  });
+
+  test('5분이 지나면 랭킹과 계산 시각을 새로 갱신', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-22T08:30:00.000Z'));
+    productModel.getProductRanking
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    const app = createTestApp('/api/products', productsRouter);
+
+    const firstResponse = await request(app).get('/api/products/ranking');
+    jest.setSystemTime(new Date('2026-08-22T08:35:00.000Z'));
+    const secondResponse = await request(app).get('/api/products/ranking');
+
+    expect(productModel.getProductRanking).toHaveBeenCalledTimes(2);
+    expect(firstResponse.body.meta.computedAt).toBe('2026-08-22T08:30:00.000Z');
+    expect(secondResponse.body.meta.computedAt).toBe('2026-08-22T08:35:00.000Z');
+  });
+
+  test('캐시가 비어 있을 때 동시 요청이 와도 DB 조회는 한 번만 실행', async () => {
+    let resolveRanking;
+    productModel.getProductRanking.mockReturnValue(new Promise(resolve => {
+      resolveRanking = resolve;
+    }));
+    const createResponse = () => {
+      const response = {};
+      response.status = jest.fn(() => response);
+      response.json = jest.fn(body => body);
+      return response;
+    };
+    const firstResponse = createResponse();
+    const secondResponse = createResponse();
+
+    const responsesPromise = Promise.all([
+      productsController.getProductRanking({}, firstResponse),
+      productsController.getProductRanking({}, secondResponse)
+    ]);
+
+    expect(productModel.getProductRanking).toHaveBeenCalledTimes(1);
+
+    resolveRanking([]);
+    await responsesPromise;
+
+    expect(firstResponse.json.mock.calls[0][0].meta)
+      .toEqual(secondResponse.json.mock.calls[0][0].meta);
+  });
+
+  test('DB 조회 실패는 캐시에 저장하지 않고 다음 요청에서 다시 조회', async () => {
+    productModel.getProductRanking
+      .mockRejectedValueOnce(new Error('DB down'))
+      .mockResolvedValueOnce([]);
+    const app = createTestApp('/api/products', productsRouter);
+
+    const failedResponse = await request(app).get('/api/products/ranking');
+    const recoveredResponse = await request(app).get('/api/products/ranking');
+
+    expect(failedResponse.status).toBe(500);
+    expect(recoveredResponse.status).toBe(200);
+    expect(productModel.getProductRanking).toHaveBeenCalledTimes(2);
+  });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    productModel.getProductRanking.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/products', productsRouter);
+
+    const res = await request(app).get('/api/products/ranking');
 
     expect(res.status).toBe(500);
     expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');

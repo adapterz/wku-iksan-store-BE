@@ -9,6 +9,7 @@ const ordersRouter = require('./routes/orders');
 const giftsRouter = require('./routes/gifts');
 const categoriesRouter = require('./routes/categories');
 const wishlistsRouter = require('./routes/wishlists');
+const brandsRouter = require('./routes/brands');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +41,7 @@ app.use('/api/gifts', giftsRouter);
 // M3 API 구현 전 라우터 구조를 먼저 등록한다.
 app.use('/api/categories', categoriesRouter);
 app.use('/api/wishlists', wishlistsRouter);
+app.use('/api/brands', brandsRouter);
 
 // 포트로 서버 실행
 app.listen(PORT, () => {
