@@ -74,7 +74,15 @@ app.use((req, res) => {
 // Express 기본 핸들러로 넘어가 스택트레이스가 그대로 노출되는 것을 막는다.
 // 상세 내용은 서버 로그에만 남기고, 클라이언트에는 일반화된 메시지만 응답한다.
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  // 오류 객체를 통째로 로그에 남기면 malformed JSON 요청처럼 요청 본문이 err에 실려있는
+  // 경우(예: err.body) 이메일·비밀번호 같은 민감 정보까지 그대로 로그 파일에 남을 수 있다.
+  // 그래서 원인 파악에 필요한 필드만 선별해서 기록한다.
+  console.error('Unhandled error', {
+    status: err.status || err.statusCode || 500,
+    method: req.method,
+    path: req.originalUrl,
+    message: err.message
+  });
 
   // 잘못된 요청(예: malformed JSON body)은 4xx로 응답하되, 원본 메시지는 노출하지 않는다.
   const status = err.status || err.statusCode;
