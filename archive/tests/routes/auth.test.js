@@ -118,7 +118,12 @@ describe('POST /api/auth/login', () => {
       id: 1, email: 'user@example.com', nickname: '아온', password: 'hashed-pw'
     });
     bcrypt.compare.mockResolvedValue(true);
-    const app = createTestApp('/api/auth', authRouter);
+    const regenerate = jest.fn((callback) => callback());
+    const save = jest.fn(function saveSession(callback) {
+      expect(this.userId).toBe(1);
+      callback();
+    });
+    const app = createTestApp('/api/auth', authRouter, { session: { regenerate, save } });
 
     const res = await request(app)
       .post('/api/auth/login')
@@ -127,6 +132,48 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('LOGIN_SUCCESS');
     expect(res.body.data).toEqual({ userId: 1, email: 'user@example.com', nickname: '아온' });
+    expect(regenerate).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(regenerate.mock.invocationCallOrder[0]).toBeLessThan(save.mock.invocationCallOrder[0]);
+  });
+
+  test('세션 ID 재발급에 실패하면 500이고 로그인 성공으로 처리하지 않음', async () => {
+    userModel.getUserByEmail.mockResolvedValue({
+      id: 1, email: 'user@example.com', nickname: '아온', password: 'hashed-pw'
+    });
+    bcrypt.compare.mockResolvedValue(true);
+    const regenerate = jest.fn((callback) => callback(new Error('regenerate failed')));
+    const save = jest.fn((callback) => callback());
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const app = createTestApp('/api/auth', authRouter, { session: { regenerate, save } });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'user@example.com', password: 'myS3curePw' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+    expect(save).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test('새 세션 저장에 실패하면 500이고 로그인 성공으로 처리하지 않음', async () => {
+    userModel.getUserByEmail.mockResolvedValue({
+      id: 1, email: 'user@example.com', nickname: '아온', password: 'hashed-pw'
+    });
+    bcrypt.compare.mockResolvedValue(true);
+    const regenerate = jest.fn((callback) => callback());
+    const save = jest.fn((callback) => callback(new Error('save failed')));
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const app = createTestApp('/api/auth', authRouter, { session: { regenerate, save } });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'user@example.com', password: 'myS3curePw' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+    consoleError.mockRestore();
   });
 });
 
@@ -144,7 +191,7 @@ describe('POST /api/auth/logout', () => {
     expect(res.body.code).toBe('UNAUTHORIZED');
   });
 
-  test('로그인 상태면 세션을 파기하고 200 LOGOUT_SUCCESS', async () => {
+  test('로그인 상태면 세션과 브라우저 쿠키를 제거하고 200 LOGOUT_SUCCESS', async () => {
     const destroy = jest.fn((cb) => cb());
     const app = createTestApp('/api/auth', authRouter, { session: { userId: 1, destroy } });
 
@@ -153,6 +200,22 @@ describe('POST /api/auth/logout', () => {
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('LOGOUT_SUCCESS');
     expect(destroy).toHaveBeenCalled();
+    expect(res.headers['set-cookie']).toEqual(expect.arrayContaining([
+      expect.stringContaining('connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly')
+    ]));
+  });
+
+  test('세션 파기에 실패하면 쿠키를 제거하지 않고 500 반환', async () => {
+    const destroy = jest.fn((callback) => callback(new Error('destroy failed')));
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const app = createTestApp('/api/auth', authRouter, { session: { userId: 1, destroy } });
+
+    const res = await request(app).post('/api/auth/logout');
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+    expect(res.headers['set-cookie']).toBeUndefined();
+    consoleError.mockRestore();
   });
 });
 
