@@ -6,7 +6,12 @@ function createTestApp(mountPath, router, { session = {} } = {}) {
   const app = express();
   app.use(express.json());
   app.use((req, res, next) => {
-    req.session = { ...session };
+    req.session = {
+      regenerate: (callback) => callback(),
+      save: (callback) => callback(),
+      destroy: (callback) => callback(),
+      ...session
+    };
     next();
   });
   app.use(mountPath, router);

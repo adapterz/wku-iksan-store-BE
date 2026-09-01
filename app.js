@@ -11,6 +11,8 @@ const categoriesRouter = require('./routes/categories');
 const wishlistsRouter = require('./routes/wishlists');
 const brandsRouter = require('./routes/brands');
 
+const { SESSION_COOKIE_NAME, SESSION_COOKIE_PATH } = require('./constants/session');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -19,12 +21,14 @@ app.use(express.json());
 
 // 세션 미들웨어 설정
 app.use(session({
+  name: SESSION_COOKIE_NAME,
   secret: process.env.SESSION_SECRET || 'fallback_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: false, // 개발 환경은 http 사용
-    httpOnly: true
+    httpOnly: true,
+    path: SESSION_COOKIE_PATH
   }
 }));
 
