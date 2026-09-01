@@ -2,6 +2,7 @@ const userModel = require('../db/models/userModel');
 const bcrypt = require('bcrypt');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
+const { SESSION_COOKIE_NAME, SESSION_COOKIE_PATH } = require('../constants/session');
 const {
   validateEmail,
   validateSignupPassword,
@@ -26,6 +27,35 @@ function getDuplicateUserError(error) {
   }
 
   return ERROR.INTERNAL_SERVER_ERROR;
+}
+
+// 로그인 전 세션을 폐기하고 새 세션 ID를 발급한다.
+function regenerateSession(req) {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((error) => {
+      if (error) return reject(error);
+      return resolve();
+    });
+  });
+}
+
+// 새 세션이 저장된 뒤에만 로그인 성공 응답을 반환하도록 저장 완료를 기다린다.
+function saveSession(req) {
+  return new Promise((resolve, reject) => {
+    req.session.save((error) => {
+      if (error) return reject(error);
+      return resolve();
+    });
+  });
+}
+
+function destroySession(req) {
+  return new Promise((resolve, reject) => {
+    req.session.destroy((error) => {
+      if (error) return reject(error);
+      return resolve();
+    });
+  });
 }
 
 // POST /api/auth/signup - 회원가입
@@ -112,8 +142,10 @@ async function login(req, res) {
       return sendError(res, ERROR.INVALID_EMAIL_OR_PASSWORD);
     }
 
-    // 세션에 사용자 정보 저장
+    // 로그인 전후 세션 ID를 교체해 기존 세션이 인증 세션으로 이어지지 않도록 한다.
+    await regenerateSession(req);
     req.session.userId = user.id;
+    await saveSession(req);
 
     return sendSuccess(res, {
       ...SUCCESS.LOGIN_SUCCESS,
@@ -132,14 +164,17 @@ async function login(req, res) {
 
 // POST /api/auth/logout - 로그아웃
 async function logout(req, res) {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Error in POST /api/auth/logout:', err);
-      return sendError(res);
-    }
-
+  try {
+    await destroySession(req);
+    res.clearCookie(SESSION_COOKIE_NAME, {
+      httpOnly: true,
+      path: SESSION_COOKIE_PATH
+    });
     return sendSuccess(res, SUCCESS.LOGOUT_SUCCESS);
-  });
+  } catch (error) {
+    console.error('Error in POST /api/auth/logout:', error);
+    return sendError(res);
+  }
 }
 
 // GET /api/auth/me - 내 정보 조회
