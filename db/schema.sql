@@ -18,14 +18,17 @@ CREATE TABLE categories (
 );
 
 CREATE TABLE products (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name            VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
-    brand           VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
-    price           INT NOT NULL,
-    thumbnail_url   VARCHAR(500),
-    description     TEXT,
-    usage_info      VARCHAR(500),
-    category_id     BIGINT NOT NULL,
+    id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name               VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+    brand              VARCHAR(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+    price              INT NOT NULL,
+    thumbnail_url      VARCHAR(500),
+    description        TEXT,
+    valid_period       VARCHAR(300),
+    usage_method       VARCHAR(300),
+    exchange_location  VARCHAR(300),
+    caution            VARCHAR(300),
+    category_id        BIGINT NOT NULL,
 
     CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 );

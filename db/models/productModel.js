@@ -148,7 +148,10 @@ const getProductById = async (id) => {
       p.price,
       p.thumbnail_url,
       p.description,
-      p.usage_info,
+      p.valid_period,
+      p.usage_method,
+      p.exchange_location,
+      p.caution,
       p.category_id,
       c.name AS category_name
     FROM products p
