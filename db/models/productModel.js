@@ -103,10 +103,13 @@ const getAllProducts = async ({ keyword = null, categoryId = null, brand = null 
       p.price,
       p.thumbnail_url,
       p.category_id,
-      c.name AS category_name
+      c.name AS category_name,
+      COUNT(w.id) AS wishlist_count
     FROM products p
     JOIN categories c ON p.category_id = c.id
+    LEFT JOIN wishlists w ON w.product_id = p.id
     ${whereClause}
+    GROUP BY p.id, c.name
     ${orderByClause}
   `;
 

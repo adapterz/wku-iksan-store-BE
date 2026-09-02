@@ -73,7 +73,8 @@ async function getProducts(req, res) {
       price: row.price,
       thumbnailUrl: row.thumbnail_url,
       categoryId: row.category_id,
-      categoryName: row.category_name
+      categoryName: row.category_name,
+      wishlistCount: row.wishlist_count
     }));
 
     return sendSuccess(res, {
