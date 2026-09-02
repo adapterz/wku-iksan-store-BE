@@ -13,7 +13,7 @@ const wishlistsRouter = require('./routes/wishlists');
 const brandsRouter = require('./routes/brands');
 
 const { sendError } = require('./routes/api');
-const { SESSION_COOKIE_NAME, SESSION_COOKIE_PATH } = require('./constants/session');
+const { SESSION_COOKIE_NAME, getSessionCookieOptions } = require('./constants/session');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +21,12 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // 응답 헤더에 프레임워크 정보(X-Powered-By: Express)가 노출되지 않도록 비활성화
 app.disable('x-powered-by');
+
+// 운영 환경에서는 Nginx가 전달한 X-Forwarded-Proto를 신뢰해
+// 원래 요청이 HTTPS였는지 판단하고 Secure 세션 쿠키를 발급한다.
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
 
 // X-Content-Type-Options, X-Frame-Options, HSTS 등 브라우저가 참고하는 보안 헤더 일괄 적용.
 // 이 서버는 HTML을 렌더링하지 않는 순수 JSON API라 CSP는 의미가 없어 비활성화한다.
@@ -46,11 +52,7 @@ app.use(session({
   secret: sessionSecret || 'dev-only-insecure-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    secure: false, // 개발 환경은 http 사용
-    httpOnly: true,
-    path: SESSION_COOKIE_PATH
-  }
+  cookie: getSessionCookieOptions(isProduction)
 }));
 
 // GET /api/health 라우터 설정
