@@ -201,8 +201,31 @@ describe('POST /api/auth/logout', () => {
     expect(res.body.code).toBe('LOGOUT_SUCCESS');
     expect(destroy).toHaveBeenCalled();
     expect(res.headers['set-cookie']).toEqual(expect.arrayContaining([
-      expect.stringContaining('connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly')
+      expect.stringContaining('connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax')
     ]));
+  });
+
+  test('운영 환경에서는 로그아웃 쿠키에도 Secure 속성을 적용', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    try {
+      const destroy = jest.fn((cb) => cb());
+      const app = createTestApp('/api/auth', authRouter, { session: { userId: 1, destroy } });
+
+      const res = await request(app).post('/api/auth/logout');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['set-cookie']).toEqual(expect.arrayContaining([
+        expect.stringContaining('connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax')
+      ]));
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previousNodeEnv;
+      }
+    }
   });
 
   test('세션 파기에 실패하면 쿠키를 제거하지 않고 500 반환', async () => {
