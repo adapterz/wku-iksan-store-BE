@@ -132,7 +132,10 @@ async function getProductDetail(req, res) {
         price: product.price,
         thumbnailUrl: product.thumbnail_url,
         description: product.description,
-        usageInfo: product.usage_info,
+        validPeriod: product.valid_period,
+        usageMethod: product.usage_method,
+        exchangeLocation: product.exchange_location,
+        caution: product.caution,
         categoryId: product.category_id,
         categoryName: product.category_name
       }

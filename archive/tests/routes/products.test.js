@@ -363,7 +363,10 @@ describe('GET /api/products/:id', () => {
       price: 1000,
       thumbnail_url: 'a.jpg',
       description: '설명',
-      usage_info: '사용법',
+      valid_period: '유효기간',
+      usage_method: '사용법',
+      exchange_location: '교환처',
+      caution: '주의사항',
       category_id: 2,
       category_name: '간식'
     });
@@ -381,7 +384,10 @@ describe('GET /api/products/:id', () => {
       price: 1000,
       thumbnailUrl: 'a.jpg',
       description: '설명',
-      usageInfo: '사용법',
+      validPeriod: '유효기간',
+      usageMethod: '사용법',
+      exchangeLocation: '교환처',
+      caution: '주의사항',
       categoryId: 2,
       categoryName: '간식'
     });
