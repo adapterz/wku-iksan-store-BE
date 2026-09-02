@@ -19,6 +19,8 @@ describe('productModel.getAllProducts', () => {
 
     expect(query).toContain('FROM products p');
     expect(query).toContain('JOIN categories c ON p.category_id = c.id');
+    expect(query).toContain('LEFT JOIN wishlists w ON w.product_id = p.id');
+    expect(query).toContain('GROUP BY p.id, c.name');
     expect(query).not.toContain('WHERE');
     expect(params).toEqual([]);
     expect(result).toEqual(rows);

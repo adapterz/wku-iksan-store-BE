@@ -20,7 +20,8 @@ describe('GET /api/products', () => {
         price: 1000,
         thumbnail_url: 'a.jpg',
         category_id: 2,
-        category_name: '간식'
+        category_name: '간식',
+        wishlist_count: 3
       }
     ]);
     const app = createTestApp('/api/products', productsRouter);
@@ -42,7 +43,8 @@ describe('GET /api/products', () => {
         price: 1000,
         thumbnailUrl: 'a.jpg',
         categoryId: 2,
-        categoryName: '간식'
+        categoryName: '간식',
+        wishlistCount: 3
       }
     ]);
   });
