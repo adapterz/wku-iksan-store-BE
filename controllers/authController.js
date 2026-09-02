@@ -2,7 +2,7 @@ const userModel = require('../db/models/userModel');
 const bcrypt = require('bcrypt');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
-const { SESSION_COOKIE_NAME, SESSION_COOKIE_PATH } = require('../constants/session');
+const { SESSION_COOKIE_NAME, getSessionCookieOptions } = require('../constants/session');
 const {
   validateEmail,
   validateSignupPassword,
@@ -166,10 +166,10 @@ async function login(req, res) {
 async function logout(req, res) {
   try {
     await destroySession(req);
-    res.clearCookie(SESSION_COOKIE_NAME, {
-      httpOnly: true,
-      path: SESSION_COOKIE_PATH
-    });
+    res.clearCookie(
+      SESSION_COOKIE_NAME,
+      getSessionCookieOptions(process.env.NODE_ENV === 'production')
+    );
     return sendSuccess(res, SUCCESS.LOGOUT_SUCCESS);
   } catch (error) {
     console.error('Error in POST /api/auth/logout:', error);
