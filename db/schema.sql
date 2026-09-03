@@ -24,6 +24,7 @@ CREATE TABLE products (
     price              INT NOT NULL,
     thumbnail_url      VARCHAR(500),
     description        TEXT,
+    description_image_url VARCHAR(500),
     valid_period       VARCHAR(300),
     usage_method       VARCHAR(300),
     exchange_location  VARCHAR(300),
