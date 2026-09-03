@@ -35,6 +35,9 @@ async function createOrder(req, res) {
       return sendError(res, ERROR.RECEIVER_NOT_FOUND);
     }
 
+    // 탈퇴/닉네임 변경 이후에도 주문 당시 닉네임을 그대로 보여주기 위한 스냅샷
+    const sender = await userModel.getUserById(userId);
+
     // 12자리 난수 생성 (바코드)
     let barcode = '';
     for (let i = 0; i < 12; i++) {
@@ -44,8 +47,10 @@ async function createOrder(req, res) {
     const finalTotalPrice = product.price; // 서버에서 직접 상품 가격 조회
     const { orderId, giftId } = await orderModel.createOrderWithGift(
       userId,
+      sender.nickname,
       productId,
       finalReceiverId,
+      receiver.nickname,
       finalTotalPrice,
       message || null,
       isSelfGift,

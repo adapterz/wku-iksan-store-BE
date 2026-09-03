@@ -3,8 +3,10 @@ const pool = require('../pool');
 // 주문과 선물은 하나의 거래이므로 같은 DB 연결과 트랜잭션에서 함께 처리한다.
 const createOrderWithGift = async (
   userId,
+  senderNickname,
   productId,
   receiverId,
+  receiverNickname,
   totalPrice,
   message,
   isSelfGift,
@@ -19,9 +21,9 @@ const createOrderWithGift = async (
 
     const [orderResult] = await connection.query(
       `INSERT INTO orders
-        (user_id, product_id, receiver_id, total_price, message, is_self_gift, payment_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [userId, productId, receiverId, totalPrice, message, isSelfGift, 'paid']
+        (user_id, sender_nickname_snapshot, product_id, receiver_id, receiver_nickname_snapshot, total_price, message, is_self_gift, payment_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId, senderNickname, productId, receiverId, receiverNickname, totalPrice, message, isSelfGift, 'paid']
     );
 
     const [giftResult] = await connection.query(

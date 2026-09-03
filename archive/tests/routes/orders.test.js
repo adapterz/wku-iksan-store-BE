@@ -89,7 +89,7 @@ describe('POST /api/orders', () => {
 
   test('셀프 선물이 정상 생성되면 201과 orderId/giftId 반환', async () => {
     productModel.getProductById.mockResolvedValue({ id: 1, price: 1000 });
-    userModel.getUserById.mockResolvedValue({ id: 1 });
+    userModel.getUserById.mockResolvedValue({ id: 1, nickname: 'aon' });
     orderModel.createOrderWithGift.mockResolvedValue({ orderId: 100, giftId: 200 });
     const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
 
@@ -99,13 +99,17 @@ describe('POST /api/orders', () => {
     expect(res.body.code).toBe('ORDER_CREATE_SUCCESS');
     expect(res.body.data).toEqual({ orderId: 100, giftId: 200 });
     expect(orderModel.createOrderWithGift).toHaveBeenCalledWith(
-      1, 1, 1, 1000, null, true, expect.any(String)
+      1, 'aon', 1, 1, 'aon', 1000, null, true, expect.any(String)
     );
   });
 
   test('타인에게 선물이 정상 생성되면 201과 orderId/giftId 반환', async () => {
     productModel.getProductById.mockResolvedValue({ id: 5, price: 3000 });
-    userModel.getUserById.mockResolvedValue({ id: 2 });
+    userModel.getUserById.mockImplementation((id) => {
+      if (id === 1) return Promise.resolve({ id: 1, nickname: 'aon' });
+      if (id === 2) return Promise.resolve({ id: 2, nickname: 'miku' });
+      return Promise.resolve(null);
+    });
     orderModel.createOrderWithGift.mockResolvedValue({ orderId: 101, giftId: 201 });
     const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
 
@@ -118,7 +122,7 @@ describe('POST /api/orders', () => {
     expect(res.body.data).toEqual({ orderId: 101, giftId: 201 });
     expect(userModel.getUserById).toHaveBeenCalledWith(2);
     expect(orderModel.createOrderWithGift).toHaveBeenCalledWith(
-      1, 5, 2, 3000, '생일 축하해요', false, expect.any(String)
+      1, 'aon', 5, 2, 'miku', 3000, '생일 축하해요', false, expect.any(String)
     );
   });
 
