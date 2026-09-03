@@ -172,15 +172,22 @@ async function deleteAccount(req, res) {
 
     await userModel.deleteUser(userId);
 
-    // 계정 삭제는 이미 끝났으므로, 세션 정리 실패가 삭제 자체의 실패로 보이지 않게 한다.
+    // 계정 삭제는 이미 끝났으므로, 서버 세션 삭제 실패가 계정 삭제 실패로 보이지 않게 한다.
     try {
       await destroySession(req);
+    } catch (sessionError) {
+      console.error('Session cleanup failed after account deletion:', sessionError);
+    }
+
+    // 서버 세션 삭제에 실패해도 브라우저가 기존 세션 쿠키를 다시 보내지 않도록
+    // 쿠키 제거는 별도로 시도한다.
+    try {
       res.clearCookie(
         SESSION_COOKIE_NAME,
         getSessionCookieOptions(process.env.NODE_ENV === 'production')
       );
-    } catch (sessionError) {
-      console.error('Session cleanup failed after account deletion:', sessionError);
+    } catch (cookieError) {
+      console.error('Session cookie cleanup failed after account deletion:', cookieError);
     }
 
     return sendSuccess(res, SUCCESS.ACCOUNT_DELETE_SUCCESS);
