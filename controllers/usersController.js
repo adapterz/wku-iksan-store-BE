@@ -50,6 +50,49 @@ async function searchUser(req, res) {
   }
 }
 
+// PATCH /api/users/me/nickname — 비밀번호 재확인 없이 세션만으로 변경한다.
+async function updateNickname(req, res) {
+  try {
+    const userId = req.session.userId;
+    const { nickname } = req.body || {};
+
+    const nicknameValidation = validateNickname(nickname);
+    if (nicknameValidation.errorCode) {
+      return sendError(res, ERROR[nicknameValidation.errorCode]);
+    }
+
+    const user = await userModel.getUserById(userId);
+    if (!user) {
+      return sendError(res, ERROR.UNAUTHORIZED);
+    }
+
+    const existingNickname = await userModel.getUserByNickname(nicknameValidation.value);
+    if (existingNickname && existingNickname.id !== userId) {
+      return sendError(res, ERROR.NICKNAME_ALREADY_EXISTS);
+    }
+
+    const updatedUser = await userModel.updateUserNickname(userId, nicknameValidation.value);
+
+    return sendSuccess(res, {
+      ...SUCCESS.NICKNAME_UPDATE_SUCCESS,
+      data: {
+        userId: updatedUser.id,
+        nickname: updatedUser.nickname
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in PATCH /api/users/me/nickname:', error);
+
+    // 중복 확인과 UPDATE 사이의 경합으로 유니크 제약을 위반한 경우도 409로 응답한다.
+    if (error.code === 'ER_DUP_ENTRY') {
+      return sendError(res, ERROR.NICKNAME_ALREADY_EXISTS);
+    }
+
+    return sendError(res);
+  }
+}
+
 // PATCH /api/users/me/email
 async function updateEmail(req, res) {
   try {
@@ -200,6 +243,7 @@ async function deleteAccount(req, res) {
 
 module.exports = {
   searchUser,
+  updateNickname,
   updateEmail,
   updatePassword,
   deleteAccount

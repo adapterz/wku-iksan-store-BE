@@ -66,6 +66,93 @@ describe('GET /api/users/search', () => {
   });
 });
 
+describe('PATCH /api/users/me/nickname', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test('로그인하지 않으면 401 UNAUTHORIZED', async () => {
+    const app = createTestApp('/api/users', usersRouter, { session: {} });
+
+    const res = await request(app).patch('/api/users/me/nickname').send({ nickname: 'newNick' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('UNAUTHORIZED');
+    expect(userModel.getUserById).not.toHaveBeenCalled();
+  });
+
+  test('닉네임 형식이 잘못되면 400 NICKNAME_TOO_SHORT', async () => {
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).patch('/api/users/me/nickname').send({ nickname: 'a' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('NICKNAME_TOO_SHORT');
+  });
+
+  test('다른 유저가 이미 사용 중인 닉네임이면 409 NICKNAME_ALREADY_EXISTS', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, nickname: 'old' });
+    userModel.getUserByNickname.mockResolvedValue({ id: 2, nickname: 'taken' });
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).patch('/api/users/me/nickname').send({ nickname: 'taken' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('NICKNAME_ALREADY_EXISTS');
+    expect(userModel.updateUserNickname).not.toHaveBeenCalled();
+  });
+
+  test('본인의 기존 닉네임으로 재요청하면 정상 처리', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, nickname: 'me' });
+    userModel.getUserByNickname.mockResolvedValue({ id: 1, nickname: 'me' });
+    userModel.updateUserNickname.mockResolvedValue({ id: 1, nickname: 'me' });
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).patch('/api/users/me/nickname').send({ nickname: 'me' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('NICKNAME_UPDATE_SUCCESS');
+  });
+
+  test('정상 변경되면 200 NICKNAME_UPDATE_SUCCESS와 변경된 닉네임 반환', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, nickname: 'old' });
+    userModel.getUserByNickname.mockResolvedValue(null);
+    userModel.updateUserNickname.mockResolvedValue({ id: 1, nickname: 'newNick' });
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).patch('/api/users/me/nickname').send({ nickname: 'newNick' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('NICKNAME_UPDATE_SUCCESS');
+    expect(res.body.data).toEqual({ userId: 1, nickname: 'newNick' });
+    expect(userModel.updateUserNickname).toHaveBeenCalledWith(1, 'newNick');
+  });
+
+  test('중복 확인 통과 후 UPDATE 시점에 유니크 제약을 위반하면 409 NICKNAME_ALREADY_EXISTS', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, nickname: 'old' });
+    userModel.getUserByNickname.mockResolvedValue(null);
+    const duplicateError = new Error('Duplicate entry');
+    duplicateError.code = 'ER_DUP_ENTRY';
+    userModel.updateUserNickname.mockRejectedValue(duplicateError);
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).patch('/api/users/me/nickname').send({ nickname: 'race' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('NICKNAME_ALREADY_EXISTS');
+  });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    userModel.getUserById.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).patch('/api/users/me/nickname').send({ nickname: 'newNick' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  });
+});
+
 describe('PATCH /api/users/me/email', () => {
   afterEach(() => {
     jest.resetAllMocks();
