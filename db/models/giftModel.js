@@ -1,22 +1,22 @@
-// receiverId 기준 조회, 발신자(sender)는 orders.user_id를 통해 조회
+// receiverId 기준 조회, 발신자(sender) 닉네임은 탈퇴·닉네임 변경 이후에도 주문 당시
+// 값을 그대로 보여주기 위해 users 테이블이 아니라 orders.sender_nickname_snapshot을 사용한다.
 const pool = require('../pool');
 
 const getGiftsByReceiverId = async (receiverId, status) => {
   let query = `
-    SELECT 
+    SELECT
       g.id as gift_id,
       p.name as product_name,
       p.thumbnail_url as thumbnail_url,
       p.brand as brand,
       g.status as status,
-      u.nickname as sender_nickname,
+      o.sender_nickname_snapshot as sender_nickname,
       o.is_self_gift as is_self_gift,
       g.created_at as created_at,
       g.used_at as used_at
     FROM gifts g
     JOIN orders o ON g.order_id = o.id
     JOIN products p ON o.product_id = p.id
-    JOIN users u ON o.user_id = u.id
     WHERE o.receiver_id = ? AND o.payment_status = 'paid'
   `;
   const params = [receiverId];
@@ -34,7 +34,7 @@ const getGiftsByReceiverId = async (receiverId, status) => {
 
 const getGiftDetailById = async (giftId) => {
   const query = `
-    SELECT 
+    SELECT
       g.id as gift_id,
       p.name as product_name,
       p.thumbnail_url as thumbnail_url,
@@ -44,12 +44,11 @@ const getGiftDetailById = async (giftId) => {
       o.message,
       o.receiver_id,
       o.is_self_gift,
-      u.id as sender_id,
-      u.nickname as sender_nickname
+      o.user_id as sender_id,
+      o.sender_nickname_snapshot as sender_nickname
     FROM gifts g
     JOIN orders o ON g.order_id = o.id
     JOIN products p ON o.product_id = p.id
-    JOIN users u ON o.user_id = u.id
     WHERE g.id = ?
   `;
   const [rows] = await pool.query(query, [giftId]);

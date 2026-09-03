@@ -46,19 +46,21 @@ CREATE TABLE wishlists (
 );
 
 CREATE TABLE orders (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id         BIGINT NOT NULL,
-    product_id      BIGINT NOT NULL,
-    receiver_id     BIGINT NOT NULL,
-    total_price     INT NOT NULL,
-    message         VARCHAR(500),
-    is_self_gift    BOOLEAN NOT NULL,
-    payment_status  VARCHAR(20) NOT NULL,
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id                           BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id                      BIGINT,
+    sender_nickname_snapshot     VARCHAR(50) NOT NULL,
+    product_id                   BIGINT NOT NULL,
+    receiver_id                  BIGINT,
+    receiver_nickname_snapshot   VARCHAR(50) NOT NULL,
+    total_price                  INT NOT NULL,
+    message                      VARCHAR(500),
+    is_self_gift                 BOOLEAN NOT NULL,
+    payment_status               VARCHAR(20) NOT NULL,
+    created_at                   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_orders_product FOREIGN KEY (product_id) REFERENCES products(id),
-    CONSTRAINT fk_orders_receiver FOREIGN KEY (receiver_id) REFERENCES users(id)
+    CONSTRAINT fk_orders_receiver FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE gifts (
