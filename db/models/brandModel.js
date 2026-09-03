@@ -3,9 +3,6 @@ const pool = require('../pool');
 // LIKE에서 의미가 있는 문자도 사용자가 입력한 일반 문자 그대로 검색한다.
 const escapeLikePattern = (keyword) => keyword.replace(/[!%_]/g, character => `!${character}`);
 
-// keyword가 없을 때(대표 브랜드 모아보기)만 상위 N개로 제한한다.
-const DEFAULT_BRAND_LIST_LIMIT = 4;
-
 const getBrands = async ({ keyword = null } = {}) => {
   const conditions = [];
   const params = [];
@@ -19,8 +16,6 @@ const getBrands = async ({ keyword = null } = {}) => {
   const whereClause = conditions.length > 0
     ? `WHERE ${conditions.join(' AND ')}`
     : '';
-
-  const limitClause = keyword === null ? 'LIMIT ?' : '';
 
   const query = `
     SELECT
@@ -36,19 +31,13 @@ const getBrands = async ({ keyword = null } = {}) => {
     FROM products p
     ${whereClause}
     GROUP BY p.brand
-    ORDER BY product_count DESC, p.brand ASC
-    ${limitClause}
+    ORDER BY p.brand ASC
   `;
-
-  if (keyword === null) {
-    params.push(DEFAULT_BRAND_LIST_LIMIT);
-  }
 
   const [rows] = await pool.query(query, params);
   return rows;
 };
 
 module.exports = {
-  DEFAULT_BRAND_LIST_LIMIT,
   getBrands
 };

@@ -10,7 +10,7 @@ describe('brandModel.getBrands', () => {
     jest.resetAllMocks();
   });
 
-  test('keyword가 없으면 상품 수 내림차순으로 상위 4개만 조회', async () => {
+  test('keyword가 없으면 전체 브랜드를 브랜드명 오름차순으로 조회', async () => {
     const rows = [{ brand: '익산로컬푸드', product_count: 2, thumbnail_url: 'a.jpg' }];
     pool.query.mockResolvedValue([rows]);
 
@@ -20,19 +20,20 @@ describe('brandModel.getBrands', () => {
     expect(query).toContain('FROM products p');
     expect(query).not.toContain('p.brand LIKE');
     expect(query).toContain('GROUP BY p.brand');
-    expect(query).toContain('ORDER BY product_count DESC, p.brand ASC');
-    expect(query).toContain('LIMIT ?');
-    expect(params).toEqual([4]);
+    expect(query).toContain('ORDER BY p.brand ASC');
+    expect(query).not.toContain('LIMIT ?');
+    expect(params).toEqual([]);
     expect(result).toEqual(rows);
   });
 
-  test('keyword가 있으면 brand LIKE 조건으로 검색하고 상위 개수 제한은 없음', async () => {
+  test('keyword가 있으면 brand LIKE 조건으로 검색하고 전체 결과를 브랜드명순으로 조회', async () => {
     pool.query.mockResolvedValue([[]]);
 
     await brandModel.getBrands({ keyword: '로컬' });
     const [query, params] = pool.query.mock.calls[0];
 
     expect(query).toContain("WHERE p.brand LIKE ? ESCAPE '!'");
+    expect(query).toContain('ORDER BY p.brand ASC');
     expect(query).not.toContain('LIMIT ?');
     expect(params).toEqual(['%로컬%']);
   });
