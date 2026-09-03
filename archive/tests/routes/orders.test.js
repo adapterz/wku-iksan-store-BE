@@ -178,13 +178,13 @@ describe('GET /api/orders/:id', () => {
       user_id: 1,
       product_id: 1,
       receiver_id: 1,
+      receiver_nickname_snapshot: 'aon',
       total_price: 1000,
       message: null,
       is_self_gift: 1,
       payment_status: 'paid',
       created_at: '2026-07-29T00:00:00.000Z'
     });
-    userModel.getUserById.mockResolvedValue({ id: 1, nickname: 'aon' });
     productModel.getProductById.mockResolvedValue({
       id: 1, name: '상품A', brand: '브랜드A', thumbnail_url: 'a.jpg'
     });
@@ -198,6 +198,31 @@ describe('GET /api/orders/:id', () => {
     expect(res.body.data.orderId).toBe(1);
     expect(res.body.data.giftId).toBe(5);
     expect(res.body.data.receiver).toEqual({ userId: 1, nickname: 'aon' });
+  });
+
+  test('수신자가 탈퇴해 receiver_id가 NULL이어도 스냅샷 닉네임으로 반환', async () => {
+    orderModel.getOrderById.mockResolvedValue({
+      id: 1,
+      user_id: 1,
+      product_id: 1,
+      receiver_id: null,
+      receiver_nickname_snapshot: 'miku',
+      total_price: 1000,
+      message: null,
+      is_self_gift: 0,
+      payment_status: 'paid',
+      created_at: '2026-07-29T00:00:00.000Z'
+    });
+    productModel.getProductById.mockResolvedValue({
+      id: 1, name: '상품A', brand: '브랜드A', thumbnail_url: 'a.jpg'
+    });
+    orderModel.getGiftByOrderId.mockResolvedValue({ id: 5 });
+    const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/orders/1');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.receiver).toEqual({ userId: null, nickname: 'miku' });
   });
 
   test('DB 오류가 나면 기본 500 오류 응답', async () => {
