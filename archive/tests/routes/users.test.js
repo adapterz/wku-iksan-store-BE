@@ -318,9 +318,14 @@ describe('DELETE /api/users/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('ACCOUNT_DELETE_SUCCESS');
     expect(userModel.deleteUser).toHaveBeenCalledWith(1);
+    expect(res.headers['set-cookie']).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^connect\.sid=;/)
+      ])
+    );
   });
 
-  test('계정은 이미 삭제된 뒤 세션 정리가 실패해도 200 ACCOUNT_DELETE_SUCCESS 유지', async () => {
+  test('계정 삭제 후 서버 세션 정리가 실패해도 쿠키를 제거하고 200을 유지', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
     giftModel.getGiftsByReceiverId.mockResolvedValue([]);
@@ -336,6 +341,11 @@ describe('DELETE /api/users/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('ACCOUNT_DELETE_SUCCESS');
     expect(userModel.deleteUser).toHaveBeenCalledWith(1);
+    expect(res.headers['set-cookie']).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^connect\.sid=;/)
+      ])
+    );
   });
 
   test('DB 오류가 나면 기본 500 오류 응답', async () => {
