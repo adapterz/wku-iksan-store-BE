@@ -13,6 +13,10 @@
 -- 기존 usage_info 값은 의미가 가장 가까운 usage_method로 그대로 옮겨두었을 뿐,
 -- 나머지 3개 컬럼은 비어 있습니다. 실제 항목별 값 채우기는 이슈 #68 논의에 따라
 -- FE/배포 담당자가 진행합니다.
+--
+-- [설명 이미지 컬럼 안내] db/migrate_product_description_image.sql로 추가된
+-- description_image_url은 이슈 #56 논의에 따라 값 채우기를 FE/배포 담당자가
+-- 진행하므로, 아래 INSERT문에는 포함하지 않고 NULL 기본값으로 둡니다.
 
 INSERT INTO categories (name) VALUES
 ('음료'),

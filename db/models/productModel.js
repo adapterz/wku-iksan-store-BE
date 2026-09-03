@@ -151,6 +151,7 @@ const getProductById = async (id) => {
       p.price,
       p.thumbnail_url,
       p.description,
+      p.description_image_url,
       p.valid_period,
       p.usage_method,
       p.exchange_location,
