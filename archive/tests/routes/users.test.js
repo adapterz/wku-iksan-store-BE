@@ -2,8 +2,10 @@ const request = require('supertest');
 const { createTestApp } = require('../helpers/testApp');
 
 jest.mock('../../../db/models/userModel');
+jest.mock('../../../db/models/giftModel');
 jest.mock('bcrypt');
 const userModel = require('../../../db/models/userModel');
+const giftModel = require('../../../db/models/giftModel');
 const bcrypt = require('bcrypt');
 const usersRouter = require('../../../routes/users');
 
@@ -158,6 +160,21 @@ describe('PATCH /api/users/me/email', () => {
     expect(res.status).toBe(500);
     expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
   });
+
+  test('중복 확인 통과 후 UPDATE 시점에 유니크 제약을 위반하면 409 EMAIL_ALREADY_EXISTS', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
+    bcrypt.compare.mockResolvedValue(true);
+    userModel.getUserByEmail.mockResolvedValue(null);
+    const duplicateError = new Error('Duplicate entry');
+    duplicateError.code = 'ER_DUP_ENTRY';
+    userModel.updateUserEmail.mockRejectedValue(duplicateError);
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).patch('/api/users/me/email').send({ email: 'race@test.com', password: 'pw' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('EMAIL_ALREADY_EXISTS');
+  });
 });
 
 describe('PATCH /api/users/me/password', () => {
@@ -276,10 +293,43 @@ describe('DELETE /api/users/me', () => {
     expect(userModel.deleteUser).not.toHaveBeenCalled();
   });
 
+  test('본인이 수신자인 미사용 선물이 있으면 409 ACCOUNT_HAS_UNUSED_GIFTS', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
+    bcrypt.compare.mockResolvedValue(true);
+    giftModel.getGiftsByReceiverId.mockResolvedValue([{ gift_id: 5, status: 'unused' }]);
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).delete('/api/users/me').send({ password: 'correctPw' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('ACCOUNT_HAS_UNUSED_GIFTS');
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'unused');
+    expect(userModel.deleteUser).not.toHaveBeenCalled();
+  });
+
   test('정상 삭제되면 200 ACCOUNT_DELETE_SUCCESS와 함께 세션 종료', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).delete('/api/users/me').send({ password: 'correctPw' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('ACCOUNT_DELETE_SUCCESS');
+    expect(userModel.deleteUser).toHaveBeenCalledWith(1);
+  });
+
+  test('계정은 이미 삭제된 뒤 세션 정리가 실패해도 200 ACCOUNT_DELETE_SUCCESS 유지', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
+    bcrypt.compare.mockResolvedValue(true);
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    const app = createTestApp('/api/users', usersRouter, {
+      session: {
+        userId: 1,
+        destroy: (callback) => callback(new Error('session store down'))
+      }
+    });
 
     const res = await request(app).delete('/api/users/me').send({ password: 'correctPw' });
 
