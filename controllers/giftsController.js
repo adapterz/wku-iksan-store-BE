@@ -2,6 +2,15 @@ const giftModel = require('../db/models/giftModel');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 
+function reviewFields(gift, userId) {
+  return {
+    productId: gift.product_id,
+    reviewId: gift.review_id ?? null,
+    canReview: gift.receiver_id === userId && gift.payment_status === 'paid' &&
+      gift.status === 'used' && gift.review_id == null
+  };
+}
+
 async function getGifts(req, res) {
   try {
     const receiverId = req.session.userId;
@@ -14,6 +23,7 @@ async function getGifts(req, res) {
     // Map snake_case to camelCase
     const formattedData = gifts.map(gift => ({
       giftId: gift.gift_id,
+      ...reviewFields(gift, receiverId),
       productName: gift.product_name,
       thumbnailUrl: gift.thumbnail_url,
       brand: gift.brand,
@@ -53,6 +63,7 @@ async function getGiftDetail(req, res) {
       ...SUCCESS.GIFT_DETAIL_SUCCESS,
       data: {
         giftId: gift.gift_id,
+        ...reviewFields(gift, userId),
         productName: gift.product_name,
         thumbnailUrl: gift.thumbnail_url,
         barcode: gift.barcode,

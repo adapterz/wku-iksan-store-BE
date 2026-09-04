@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "test": "jest"
+    "test": "jest",
+    "test:reviews:db": "node scripts/test-reviews-db.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
