@@ -92,7 +92,7 @@ schema.sql은 새 DB 생성용, migrate_reviews.sql은 기존 DB 추가용으로
 
 ## 관리자 모더레이션 연동 준비
 
-관리자 페이지 설계 #90과 병렬로 진행할 수 있도록 리뷰 상태 변경 로직을 별도 후속 브랜치에서 준비했습니다.
+관리자 페이지 설계 #90과 병렬로 진행할 수 있도록 리뷰 상태 변경 로직과 검증을 미리 준비했습니다.
 
 - `reviewModel.updateReviewStatus(id, status)`: 리뷰를 잠금 조회하고 `visible`/`hidden`으로 변경합니다.
 - `reviewModerationController.updateReviewStatus`: ID·본문을 검증하고 공통 응답 형식으로 결과를 반환합니다.
