@@ -124,8 +124,20 @@ async function mutateOwnedReview(id, userId, changes) {
   });
 }
 
+async function updateReviewStatus(id, status) {
+  return transaction(async connection => {
+    const [rows] = await connection.query('SELECT status FROM reviews WHERE id = ? FOR UPDATE', [id]);
+    if (!rows.length) reject('REVIEW_NOT_FOUND');
+    if (rows[0].status !== status) {
+      await connection.query('UPDATE reviews SET status = ? WHERE id = ?', [status, id]);
+    }
+    return { reviewId: id, status };
+  });
+}
+
 module.exports = {
   createReview, getProductReviews, getMyReviews, getReviewById,
   updateReview: (id, userId, changes) => mutateOwnedReview(id, userId, changes),
-  deleteReview: (id, userId) => mutateOwnedReview(id, userId, null)
+  deleteReview: (id, userId) => mutateOwnedReview(id, userId, null),
+  updateReviewStatus
 };

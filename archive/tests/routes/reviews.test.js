@@ -103,6 +103,7 @@ test('내 리뷰 경로는 :id로 오인하지 않고 필터·페이지를 전�
   expect(res.status).toBe(200);
   expect(res.body.code).toBe('MY_REVIEW_LIST_SUCCESS');
   expect(res.body.data[0].product.id).toBe(3);
+  expect(res.body.data[0].status).toBe('visible');
   expect(model.getMyReviews).toHaveBeenCalledWith(1, { page: 1, limit: 10, sort: 'latest', productId: 3 });
   expect(model.getReviewById).not.toHaveBeenCalled();
 });
