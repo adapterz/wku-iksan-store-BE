@@ -267,13 +267,22 @@ describe('GET /api/auth/me', () => {
   });
 
   test('정상 세션이면 200 SESSION_VALID와 내 정보 반환', async () => {
-    userModel.getUserById.mockResolvedValue({ id: 1, email: 'user@example.com', nickname: '아온' });
+    userModel.getUserById.mockResolvedValue({ id: 1, email: 'user@example.com', nickname: '아온', role: 'user' });
     const app = createTestApp('/api/auth', authRouter, { session: { userId: 1 } });
 
     const res = await request(app).get('/api/auth/me');
 
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('SESSION_VALID');
-    expect(res.body.data).toEqual({ userId: 1, email: 'user@example.com', nickname: '아온' });
+    expect(res.body.data).toEqual({ userId: 1, email: 'user@example.com', nickname: '아온', role: 'user' });
+  });
+
+  test('관리자 세션이면 role도 admin으로 반환 (FE 메뉴 표시 판단용, 실제 권한 검증은 requireAdmin이 담당)', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, email: 'admin@example.com', nickname: '관리자', role: 'admin' });
+    const app = createTestApp('/api/auth', authRouter, { session: { userId: 1 } });
+
+    const res = await request(app).get('/api/auth/me');
+
+    expect(res.body.data.role).toBe('admin');
   });
 });
