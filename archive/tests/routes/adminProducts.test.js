@@ -71,6 +71,19 @@ describe('POST /api/admin/products', () => {
     expect(res.body.code).toBe('INVALID_PRICE');
   });
 
+  test('선택 필드가 컬럼 길이를 초과하면 400 PRODUCT_FIELD_TOO_LONG', async () => {
+    mockAdminSession();
+    categoryModel.getCategoryById.mockResolvedValue({ id: 1, name: '음료' });
+    const app = createTestApp('/api/admin/products', adminProductsRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app)
+      .post('/api/admin/products')
+      .send({ ...VALID_BODY, validPeriod: '가'.repeat(301) });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('PRODUCT_FIELD_TOO_LONG');
+  });
+
   test('존재하지 않는 categoryId면 400 INVALID_CATEGORY_ID', async () => {
     mockAdminSession();
     categoryModel.getCategoryById.mockResolvedValue(null);

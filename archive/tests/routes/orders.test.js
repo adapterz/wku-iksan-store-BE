@@ -185,7 +185,7 @@ describe('GET /api/orders/:id', () => {
       payment_status: 'paid',
       created_at: '2026-07-29T00:00:00.000Z'
     });
-    productModel.getProductById.mockResolvedValue({
+    productModel.getProductByIdIgnoringStatus.mockResolvedValue({
       id: 1, name: '상품A', brand: '브랜드A', thumbnail_url: 'a.jpg'
     });
     orderModel.getGiftByOrderId.mockResolvedValue({ id: 5 });
@@ -198,6 +198,35 @@ describe('GET /api/orders/:id', () => {
     expect(res.body.data.orderId).toBe(1);
     expect(res.body.data.giftId).toBe(5);
     expect(res.body.data.receiver).toEqual({ userId: 1, nickname: 'aon' });
+    expect(res.body.data.product).toEqual({ id: 1, name: '상품A', brand: '브랜드A', thumbnailUrl: 'a.jpg' });
+  });
+
+  test('상품이 숨김/단종 처리돼도 과거 주문의 상품 정보는 그대로 반환', async () => {
+    orderModel.getOrderById.mockResolvedValue({
+      id: 1,
+      user_id: 1,
+      product_id: 1,
+      receiver_id: 1,
+      receiver_nickname_snapshot: 'aon',
+      total_price: 1000,
+      message: null,
+      is_self_gift: 1,
+      payment_status: 'paid',
+      created_at: '2026-07-29T00:00:00.000Z'
+    });
+    productModel.getProductByIdIgnoringStatus.mockResolvedValue({
+      id: 1, name: '단종된 상품', brand: '브랜드A', thumbnail_url: 'a.jpg', status: 'discontinued'
+    });
+    orderModel.getGiftByOrderId.mockResolvedValue({ id: 5 });
+    const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/orders/1');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.product).toEqual({
+      id: 1, name: '단종된 상품', brand: '브랜드A', thumbnailUrl: 'a.jpg'
+    });
+    expect(productModel.getProductById).not.toHaveBeenCalled();
   });
 
   test('수신자가 탈퇴해 receiver_id가 NULL이어도 스냅샷 닉네임으로 반환', async () => {
@@ -213,7 +242,7 @@ describe('GET /api/orders/:id', () => {
       payment_status: 'paid',
       created_at: '2026-07-29T00:00:00.000Z'
     });
-    productModel.getProductById.mockResolvedValue({
+    productModel.getProductByIdIgnoringStatus.mockResolvedValue({
       id: 1, name: '상품A', brand: '브랜드A', thumbnail_url: 'a.jpg'
     });
     orderModel.getGiftByOrderId.mockResolvedValue({ id: 5 });

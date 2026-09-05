@@ -6,10 +6,21 @@ const MAX_NAME_LENGTH = 255;
 const VALID_STATUSES = new Set(['active', 'hidden', 'discontinued']);
 
 // 선택 필드는 문자열로 왔을 때만 trim하고, 없으면 null로 저장한다.
+// 길이 제한은 db/schema.sql의 컬럼 정의(VARCHAR 길이)와 동일하게 맞춘다.
 const OPTIONAL_TEXT_FIELDS = [
   'thumbnailUrl', 'description', 'descriptionImageUrl',
   'validPeriod', 'usageMethod', 'exchangeLocation', 'caution'
 ];
+
+const OPTIONAL_TEXT_MAX_LENGTH = {
+  thumbnailUrl: 500,
+  descriptionImageUrl: 500,
+  validPeriod: 300,
+  usageMethod: 300,
+  exchangeLocation: 300,
+  caution: 300
+  // description은 TEXT 컬럼이라 별도 길이 제한을 두지 않는다.
+};
 
 const FIELD_TO_COLUMN = {
   name: 'name',
@@ -29,7 +40,7 @@ function isMissing(value) {
   return value === undefined || value === null || value === '';
 }
 
-function validateOptionalText(value) {
+function validateOptionalText(value, fieldName) {
   if (value === undefined) {
     return { present: false };
   }
@@ -37,9 +48,16 @@ function validateOptionalText(value) {
     return { present: true, value: null };
   }
   if (typeof value !== 'string') {
-    return { errorCode: 'INVALID_PRODUCT_NAME' };
+    return { errorCode: 'INVALID_PRODUCT_FIELD' };
   }
-  return { present: true, value: value.trim() || null };
+
+  const trimmed = value.trim();
+  const maxLength = OPTIONAL_TEXT_MAX_LENGTH[fieldName];
+  if (maxLength && trimmed.length > maxLength) {
+    return { errorCode: 'PRODUCT_FIELD_TOO_LONG' };
+  }
+
+  return { present: true, value: trimmed || null };
 }
 
 // create: 필수 필드(name, brand, price, categoryId)를 전부 검증한다.
@@ -79,7 +97,7 @@ function validateProductCreateInput(body = {}) {
   };
 
   for (const field of OPTIONAL_TEXT_FIELDS) {
-    const result = validateOptionalText(body[field]);
+    const result = validateOptionalText(body[field], field);
     if (result.errorCode) return result;
     if (result.present) {
       fields[FIELD_TO_COLUMN[field]] = result.value;
@@ -124,7 +142,7 @@ function validateProductUpdateInput(body = {}) {
   }
 
   for (const field of OPTIONAL_TEXT_FIELDS) {
-    const result = validateOptionalText(body[field]);
+    const result = validateOptionalText(body[field], field);
     if (result.errorCode) return result;
     if (result.present) {
       fields[FIELD_TO_COLUMN[field]] = result.value;
