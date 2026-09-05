@@ -83,7 +83,8 @@ async function getWishlists(req, res) {
         price: row.product_price,
         thumbnailUrl: row.thumbnail_url,
         categoryId: row.category_id,
-        categoryName: row.category_name
+        categoryName: row.category_name,
+        status: row.product_status
       },
       createdAt: row.created_at
     }));

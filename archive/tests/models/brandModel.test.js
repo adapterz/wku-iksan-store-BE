@@ -18,6 +18,7 @@ describe('brandModel.getBrands', () => {
     const [query, params] = pool.query.mock.calls[0];
 
     expect(query).toContain('FROM products p');
+    expect(query).toContain("WHERE p.status = 'active'");
     expect(query).not.toContain('p.brand LIKE');
     expect(query).toContain('GROUP BY p.brand');
     expect(query).toContain('ORDER BY p.brand ASC');
@@ -32,7 +33,7 @@ describe('brandModel.getBrands', () => {
     await brandModel.getBrands({ keyword: '로컬' });
     const [query, params] = pool.query.mock.calls[0];
 
-    expect(query).toContain("WHERE p.brand LIKE ? ESCAPE '!'");
+    expect(query).toContain("WHERE p.status = 'active' AND p.brand LIKE ? ESCAPE '!'");
     expect(query).toContain('ORDER BY p.brand ASC');
     expect(query).not.toContain('LIMIT ?');
     expect(params).toEqual(['%로컬%']);

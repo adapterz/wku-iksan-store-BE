@@ -2,6 +2,7 @@ CREATE TABLE users (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     email           VARCHAR(255) NOT NULL,
     password        VARCHAR(255) NOT NULL,
+    role            VARCHAR(20) NOT NULL DEFAULT 'user',
     nickname        VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -30,6 +31,7 @@ CREATE TABLE products (
     exchange_location  VARCHAR(300),
     caution            VARCHAR(300),
     category_id        BIGINT NOT NULL,
+    status             VARCHAR(20) NOT NULL DEFAULT 'active',
 
     CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 );

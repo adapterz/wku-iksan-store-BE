@@ -99,7 +99,7 @@ schema.sql은 새 DB 생성용, migrate_reviews.sql은 기존 DB 추가용으로
 - 숨김 리뷰는 공개 목록·평균·개수에서 제외되고, 복구하면 다시 포함됩니다.
 - 작성자의 내 리뷰에는 `status`를 반환하며, 숨김 상태에서도 중복 리뷰 작성은 허용하지 않습니다.
 
-예정 API 계약:
+API 계약:
 
 ```http
 PATCH /api/admin/reviews/:id/status
@@ -108,5 +108,6 @@ Content-Type: application/json
 { "status": "visible" | "hidden" }
 ```
 
-현재 저장소에는 #90의 `users.role`, `requireAdmin`, 관리자 라우터가 아직 구현되지 않았으므로 이 컨트롤러를 공개 경로에 마운트하지 않습니다.
-관리자 기반이 반영되면 `requireLogin` → `requireAdmin` 뒤에 해당 컨트롤러를 연결하고 401·403 라우트 테스트와 신고 처리 통합 테스트를 추가합니다.
+#90의 `users.role`/`requireAdmin`이 반영되어(관리자 페이지 1단계 PR), `routes/admin/reviews.js`에서
+`requireLogin` → `requireAdmin` 뒤에 이 컨트롤러를 연결했습니다. 401·403 라우트 테스트는
+`archive/tests/routes/adminReviews.test.js`에 있습니다. 신고(report) 기능 자체는 #90의 후속 범위입니다.

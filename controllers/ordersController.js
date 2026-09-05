@@ -82,7 +82,8 @@ async function getOrderDetail(req, res) {
       return sendError(res, ERROR.FORBIDDEN_NOT_OWNER);
     }
 
-    const product = await productModel.getProductById(order.product_id);
+    // 과거 주문 이력이므로, 이후 상품이 숨김/단종 처리되어도 상품 정보가 사라지면 안 된다.
+    const product = await productModel.getProductByIdIgnoringStatus(order.product_id);
     const gift = await orderModel.getGiftByOrderId(order.id);
 
     return sendSuccess(res, {
