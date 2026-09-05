@@ -1,12 +1,16 @@
 const productModel = require('../db/models/productModel');
 const categoryModel = require('../db/models/categoryModel');
+// 랭킹은 5분 서버 캐시를 쓰므로(productsController.js), 상품 등록/수정/상태변경 후에는
+// 캐시를 초기화해야 숨김 처리한 상품이 캐시 만료 전까지 랭킹에 계속 남는 걸 막을 수 있다.
+const { resetRankingCache } = require('./productsController');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { parsePositiveInteger } = require('../validators/commonValidator');
 const {
   validateProductCreateInput,
   validateProductUpdateInput,
-  validateProductStatus
+  validateProductStatus,
+  validateProductStatusFilter
 } = require('../validators/adminProductValidator');
 
 function mapProduct(product) {
@@ -28,6 +32,30 @@ function mapProduct(product) {
   };
 }
 
+// GET /api/admin/products?status=hidden — 상태 무관 조회, status는 선택 필터.
+// 숨김/단종 상품은 고객용 API에서 아예 안 보이므로, 관리자가 다시 찾아 수정·복구하려면
+// 이 API가 필요하다.
+async function getProducts(req, res) {
+  try {
+    const { status } = req.query;
+    const statusValidation = validateProductStatusFilter(status);
+    if (statusValidation.errorCode) {
+      return sendError(res, ERROR[statusValidation.errorCode]);
+    }
+
+    const rows = await productModel.getAllProductsForAdmin({ status: statusValidation.value });
+
+    return sendSuccess(res, {
+      ...SUCCESS.ADMIN_PRODUCT_LIST_SUCCESS,
+      data: rows.map(mapProduct)
+    });
+
+  } catch (error) {
+    console.error('Error in GET /api/admin/products:', error);
+    return sendError(res);
+  }
+}
+
 // POST /api/admin/products
 async function createProduct(req, res) {
   try {
@@ -42,6 +70,7 @@ async function createProduct(req, res) {
     }
 
     const product = await productModel.createProduct(validation.value);
+    resetRankingCache();
 
     return sendSuccess(res, {
       ...SUCCESS.ADMIN_PRODUCT_CREATE_SUCCESS,
@@ -78,6 +107,7 @@ async function updateProduct(req, res) {
     if (!product) {
       return sendError(res, ERROR.PRODUCT_NOT_FOUND);
     }
+    resetRankingCache();
 
     return sendSuccess(res, {
       ...SUCCESS.ADMIN_PRODUCT_UPDATE_SUCCESS,
@@ -108,6 +138,7 @@ async function updateProductStatus(req, res) {
     if (!product) {
       return sendError(res, ERROR.PRODUCT_NOT_FOUND);
     }
+    resetRankingCache();
 
     return sendSuccess(res, {
       ...SUCCESS.ADMIN_PRODUCT_STATUS_UPDATE_SUCCESS,
@@ -121,6 +152,7 @@ async function updateProductStatus(req, res) {
 }
 
 module.exports = {
+  getProducts,
   createProduct,
   updateProduct,
   updateProductStatus

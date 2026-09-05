@@ -163,10 +163,19 @@ function validateProductStatus(value) {
   return { value };
 }
 
+// GET /api/admin/products?status=... 쿼리 필터 — 값이 없으면 전체 조회(null)로 취급한다.
+function validateProductStatusFilter(value) {
+  if (value === undefined) {
+    return { value: null };
+  }
+  return validateProductStatus(value);
+}
+
 module.exports = {
   MAX_NAME_LENGTH,
   VALID_STATUSES,
   validateProductCreateInput,
   validateProductUpdateInput,
-  validateProductStatus
+  validateProductStatus,
+  validateProductStatusFilter
 };

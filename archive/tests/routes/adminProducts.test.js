@@ -4,9 +4,11 @@ const { createTestApp } = require('../helpers/testApp');
 jest.mock('../../../db/models/userModel');
 jest.mock('../../../db/models/productModel');
 jest.mock('../../../db/models/categoryModel');
+jest.mock('../../../controllers/productsController');
 const userModel = require('../../../db/models/userModel');
 const productModel = require('../../../db/models/productModel');
 const categoryModel = require('../../../db/models/categoryModel');
+const productsController = require('../../../controllers/productsController');
 const adminProductsRouter = require('../../../routes/admin/products');
 
 const ADMIN_SESSION = { userId: 1 };
@@ -115,6 +117,50 @@ describe('POST /api/admin/products', () => {
     expect(res.body.code).toBe('ADMIN_PRODUCT_CREATE_SUCCESS');
     expect(res.body.data.id).toBe(10);
     expect(res.body.data.status).toBe('active');
+    expect(productsController.resetRankingCache).toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/admin/products', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test('status 쿼리가 없으면 전체 상태로 조회', async () => {
+    mockAdminSession();
+    productModel.getAllProductsForAdmin.mockResolvedValue([
+      { id: 1, name: '상품A', status: 'active' },
+      { id: 2, name: '상품B', status: 'hidden' }
+    ]);
+    const app = createTestApp('/api/admin/products', adminProductsRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).get('/api/admin/products');
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('ADMIN_PRODUCT_LIST_SUCCESS');
+    expect(res.body.data).toHaveLength(2);
+    expect(productModel.getAllProductsForAdmin).toHaveBeenCalledWith({ status: null });
+  });
+
+  test('status 쿼리가 있으면 해당 상태만 조회', async () => {
+    mockAdminSession();
+    productModel.getAllProductsForAdmin.mockResolvedValue([{ id: 2, name: '상품B', status: 'hidden' }]);
+    const app = createTestApp('/api/admin/products', adminProductsRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).get('/api/admin/products').query({ status: 'hidden' });
+
+    expect(res.status).toBe(200);
+    expect(productModel.getAllProductsForAdmin).toHaveBeenCalledWith({ status: 'hidden' });
+  });
+
+  test('status 값이 유효하지 않으면 400 INVALID_PRODUCT_STATUS', async () => {
+    mockAdminSession();
+    const app = createTestApp('/api/admin/products', adminProductsRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).get('/api/admin/products').query({ status: 'deleted' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_PRODUCT_STATUS');
   });
 });
 
@@ -154,6 +200,7 @@ describe('PATCH /api/admin/products/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('ADMIN_PRODUCT_UPDATE_SUCCESS');
     expect(productModel.updateProduct).toHaveBeenCalledWith(1, { price: 2000 });
+    expect(productsController.resetRankingCache).toHaveBeenCalled();
   });
 });
 
@@ -194,5 +241,6 @@ describe('PATCH /api/admin/products/:id/status', () => {
     expect(res.body.code).toBe('ADMIN_PRODUCT_STATUS_UPDATE_SUCCESS');
     expect(res.body.data.status).toBe('hidden');
     expect(productModel.updateProductStatus).toHaveBeenCalledWith(1, 'hidden');
+    expect(productsController.resetRankingCache).toHaveBeenCalled();
   });
 });

@@ -194,6 +194,39 @@ const getProductByIdIgnoringStatus = async (id) => {
   return rows.length > 0 ? rows[0] : null;
 };
 
+// 관리자 상품 목록 — 상태 무관 조회, status 필터는 선택.
+// 숨김/단종 상품도 다시 찾아 수정·복구할 수 있어야 하므로 고객용 조회와 분리한다.
+const getAllProductsForAdmin = async ({ status = null } = {}) => {
+  const conditions = [];
+  const params = [];
+
+  if (status !== null) {
+    conditions.push('p.status = ?');
+    params.push(status);
+  }
+
+  const whereClause = conditions.length > 0
+    ? `WHERE ${conditions.join(' AND ')}`
+    : '';
+
+  const [rows] = await pool.query(`
+    SELECT
+      p.id,
+      p.name,
+      p.brand,
+      p.price,
+      p.thumbnail_url,
+      p.category_id,
+      c.name AS category_name,
+      p.status
+    FROM products p
+    JOIN categories c ON p.category_id = c.id
+    ${whereClause}
+    ORDER BY p.id ASC
+  `, params);
+  return rows;
+};
+
 const PRODUCT_INSERT_COLUMNS = [
   'name', 'brand', 'price', 'thumbnail_url', 'description', 'description_image_url',
   'valid_period', 'usage_method', 'exchange_location', 'caution', 'category_id'
@@ -237,6 +270,7 @@ const updateProductStatus = async (id, status) => {
 module.exports = {
   PRODUCT_RANKING_LIMIT,
   getAllProducts,
+  getAllProductsForAdmin,
   getProductRanking,
   getProductById,
   getProductByIdIgnoringStatus,
