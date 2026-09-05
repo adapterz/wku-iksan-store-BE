@@ -6,6 +6,10 @@ const getGiftsByReceiverId = async (receiverId, status) => {
   let query = `
     SELECT
       g.id as gift_id,
+      p.id as product_id,
+      o.receiver_id,
+      o.payment_status,
+      r.id as review_id,
       p.name as product_name,
       p.thumbnail_url as thumbnail_url,
       p.brand as brand,
@@ -17,6 +21,7 @@ const getGiftsByReceiverId = async (receiverId, status) => {
     FROM gifts g
     JOIN orders o ON g.order_id = o.id
     JOIN products p ON o.product_id = p.id
+    LEFT JOIN reviews r ON r.gift_id = g.id
     WHERE o.receiver_id = ? AND o.payment_status = 'paid'
   `;
   const params = [receiverId];
@@ -36,6 +41,9 @@ const getGiftDetailById = async (giftId) => {
   const query = `
     SELECT
       g.id as gift_id,
+      p.id as product_id,
+      o.payment_status,
+      r.id as review_id,
       p.name as product_name,
       p.thumbnail_url as thumbnail_url,
       g.barcode,
@@ -49,6 +57,7 @@ const getGiftDetailById = async (giftId) => {
     FROM gifts g
     JOIN orders o ON g.order_id = o.id
     JOIN products p ON o.product_id = p.id
+    LEFT JOIN reviews r ON r.gift_id = g.id
     WHERE g.id = ?
   `;
   const [rows] = await pool.query(query, [giftId]);

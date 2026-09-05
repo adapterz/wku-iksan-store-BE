@@ -76,3 +76,33 @@ CREATE TABLE gifts (
     CONSTRAINT uq_gifts_order_id UNIQUE (order_id),
     CONSTRAINT fk_gifts_order FOREIGN KEY (order_id) REFERENCES orders(id)
 );
+
+CREATE TABLE reviews (
+    id                          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    product_id                  BIGINT NOT NULL,
+    gift_id                     BIGINT NOT NULL,
+    user_id                     BIGINT,
+    reviewer_nickname_snapshot  VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+    rating                      TINYINT NOT NULL,
+    content                     VARCHAR(1000) NOT NULL,
+    status                      VARCHAR(20) NOT NULL DEFAULT 'visible',
+    created_at                  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_reviews_gift UNIQUE (gift_id),
+    CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5),
+    CONSTRAINT chk_reviews_status CHECK (status IN ('visible', 'hidden')),
+    CONSTRAINT fk_reviews_product
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_reviews_gift
+        FOREIGN KEY (gift_id) REFERENCES gifts(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_reviews_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_reviews_product_status_created
+    ON reviews (product_id, status, created_at, id);
+
+CREATE INDEX idx_reviews_user_created
+    ON reviews (user_id, created_at, id);

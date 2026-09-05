@@ -50,8 +50,12 @@ npm start
 - `/api/users` — 유저 검색 등
 - `/api/orders` — 주문 생성/조회
 - `/api/gifts` — 선물함 조회, 바코드 사용 처리
+- `/api/reviews` — 사용 완료 선물의 리뷰 작성·본인 조회·수정·삭제
+- `GET /api/products/:id/reviews` — 상품별 공개 리뷰·통계 조회
 
-세부 API 명세는 `archive/wiki/API-설계.md`를 참고하세요.
+세부 API 명세는 [Wiki API 설계](https://github.com/adapterz/wku-iksan-store-BE/wiki/API-설계)를 참고하세요.
+리뷰 구현·입력 정책·로컬 DB 검증은 [리뷰 안내](docs/BE/REVIEWS.md), 스키마는 [ERD](db/ERD.md)에 정리되어 있습니다.
+리뷰 기능 운영 배포 전에는 #87 완료 확인 후 `db/migrate_reviews.sql`을 먼저 적용해야 합니다.
 
 ## 배포
 
