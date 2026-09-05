@@ -105,6 +105,23 @@ test('삭제는 ID와 소유자를 함께 조건으로 사용', async () => {
   expect(await model.deleteReview(9, 1)).toEqual({ reviewId: 9 });
   expect(connection.query.mock.calls[1]).toEqual(['DELETE FROM reviews WHERE id = ? AND user_id = ?', [9, 1]]);
 });
+test('관리자 연동용 상태 변경은 잠금 조회 후 허용 상태를 바인딩', async () => {
+  connection.query.mockResolvedValueOnce([[{ status: 'visible' }]]).mockResolvedValueOnce([{ affectedRows: 1 }]);
+  expect(await model.updateReviewStatus(9, 'hidden')).toEqual({ reviewId: 9, status: 'hidden' });
+  expect(connection.query.mock.calls[0]).toEqual(['SELECT status FROM reviews WHERE id = ? FOR UPDATE', [9]]);
+  expect(connection.query.mock.calls[1]).toEqual(['UPDATE reviews SET status = ? WHERE id = ?', ['hidden', 9]]);
+  expect(connection.commit).toHaveBeenCalled();
+});
+test('동일 상태 요청은 성공하되 불필요한 UPDATE를 하지 않음', async () => {
+  connection.query.mockResolvedValueOnce([[{ status: 'hidden' }]]);
+  expect(await model.updateReviewStatus(9, 'hidden')).toEqual({ reviewId: 9, status: 'hidden' });
+  expect(connection.query).toHaveBeenCalledTimes(1);
+});
+test('관리자 연동용 상태 변경에서 없는 리뷰는 404', async () => {
+  connection.query.mockResolvedValueOnce([[]]);
+  await expect(model.updateReviewStatus(9, 'visible')).rejects.toMatchObject({ reviewError: 'REVIEW_NOT_FOUND' });
+  expect(connection.rollback).toHaveBeenCalled();
+});
 test('트랜잭션 시작 실패도 연결 반환', async () => {
   connection.beginTransaction.mockRejectedValue(new Error('begin'));
   await expect(model.deleteReview(9, 1)).rejects.toThrow('begin');

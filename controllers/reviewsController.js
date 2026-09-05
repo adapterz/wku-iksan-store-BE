@@ -18,6 +18,7 @@ function mapReview(row, userId, { mine = false } = {}) {
   // 공개 목록에는 회원 ID·탈퇴 여부·선물 ID를 노출하지 않는다.
   if (mine) {
     result.giftId = row.gift_id;
+    result.status = row.status;
     result.product = { id: row.product_id, name: row.product_name, brand: row.brand, thumbnailUrl: row.thumbnail_url };
   }
   return result;

@@ -56,6 +56,7 @@ async function main() {
       migration.replace(/^--.*$/gm, '').trim(), 'Fresh schema and migration must match');
 
     pool = require('../db/pool');
+    const reviewModel = require('../db/models/reviewModel');
     const app = express();
     app.use(express.json());
     store = new session.MemoryStore();
@@ -120,13 +121,20 @@ async function main() {
     const edited = await receiver.patch('/api/reviews/' + reviewId).send({ content: ' 수정됨 ', rating: 4 });
     check(edited.body.data.content === '수정됨' && edited.body.data.rating === 4, 'partial update');
     check((await receiver.patch('/api/reviews/' + reviewId).send({ status: 'visible' })).status === 400, 'status cannot be injected');
-    await connection.query("UPDATE reviews SET status = 'hidden' WHERE id = ?", [reviewId]);
+    check((await reviewModel.updateReviewStatus(reviewId, 'hidden')).status === 'hidden', 'moderation hides review');
     const hiddenList = await request(app).get('/api/products/' + productId + '/reviews');
     check(hiddenList.body.data.summary.reviewCount === 2 && hiddenList.body.data.summary.averageRating === 2, 'hidden excluded from summary');
     const hiddenGift = await receiver.get('/api/gifts/' + gifts[0]);
     check(!hiddenGift.body.data.canReview && hiddenGift.body.data.reviewId === reviewId, 'hidden prevents duplicate gift review');
     check((await receiver.post('/api/reviews').send(body)).status === 409, 'hidden duplicate refused');
     check((await receiver.get('/api/reviews/' + reviewId)).status === 200, 'own hidden detail allowed');
+    const hiddenMine = await receiver.get('/api/reviews/me?productId=' + productId);
+    check(hiddenMine.body.data.find(r => r.reviewId === reviewId).status === 'hidden', 'owner sees hidden status');
+    check((await reviewModel.updateReviewStatus(reviewId, 'visible')).status === 'visible', 'moderation restores review');
+    const restoredList = await request(app).get('/api/products/' + productId + '/reviews');
+    check(restoredList.body.data.summary.reviewCount === 3 && restoredList.body.data.summary.averageRating === 2.7,
+      'restored review included in summary');
+    check((await reviewModel.updateReviewStatus(reviewId, 'hidden')).status === 'hidden', 'moderation can hide again');
     check((await receiver.delete('/api/reviews/' + reviewId)).status === 200, 'user delete');
     check((await receiver.get('/api/gifts/' + gifts[0])).body.data.canReview, 'can rewrite after delete');
     const recreated = await receiver.post('/api/reviews').send(body);

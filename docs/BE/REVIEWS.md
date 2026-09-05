@@ -23,6 +23,7 @@
 
 공개 리뷰 필드: reviewId, nickname, rating, content, isMine, createdAt, updatedAt.
 본인 조회·생성·수정 응답은 여기에 giftId, product(id/name/brand/thumbnailUrl)를 추가합니다.
+본인 조회 응답에는 status도 추가하여 관리자에 의해 숨겨진 리뷰를 구분할 수 있습니다.
 닉네임은 작성 당시 스냅샷이며 공개 응답에 회원 ID나 탈퇴 여부를 노출하지 않습니다.
 
 ## 권한·검증
@@ -87,4 +88,25 @@ CHECK·UNIQUE·FK 위반, 숨김 처리와 집계, 개인정보 비노출도 검
 
 새 코드는 기존 선물 조회에서도 reviews를 사용하므로 코드만 먼저 배포하지 않습니다.
 schema.sql은 새 DB 생성용, migrate_reviews.sql은 기존 DB 추가용으로 둘 중 하나만 실행합니다.
-자동 운영 마이그레이션이나 관리자·이미지·신고 기능은 포함하지 않습니다.
+자동 운영 마이그레이션이나 관리자 권한·라우터 연결, 이미지·신고 기능은 포함하지 않습니다.
+
+## 관리자 모더레이션 연동 준비
+
+관리자 페이지 설계 #90과 병렬로 진행할 수 있도록 리뷰 상태 변경 로직을 별도 후속 브랜치에서 준비했습니다.
+
+- `reviewModel.updateReviewStatus(id, status)`: 리뷰를 잠금 조회하고 `visible`/`hidden`으로 변경합니다.
+- `reviewModerationController.updateReviewStatus`: ID·본문을 검증하고 공통 응답 형식으로 결과를 반환합니다.
+- 숨김 리뷰는 공개 목록·평균·개수에서 제외되고, 복구하면 다시 포함됩니다.
+- 작성자의 내 리뷰에는 `status`를 반환하며, 숨김 상태에서도 중복 리뷰 작성은 허용하지 않습니다.
+
+예정 API 계약:
+
+```http
+PATCH /api/admin/reviews/:id/status
+Content-Type: application/json
+
+{ "status": "visible" | "hidden" }
+```
+
+현재 저장소에는 #90의 `users.role`, `requireAdmin`, 관리자 라우터가 아직 구현되지 않았으므로 이 컨트롤러를 공개 경로에 마운트하지 않습니다.
+관리자 기반이 반영되면 `requireLogin` → `requireAdmin` 뒤에 해당 컨트롤러를 연결하고 401·403 라우트 테스트와 신고 처리 통합 테스트를 추가합니다.
