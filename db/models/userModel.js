@@ -40,6 +40,11 @@ const updateUserNickname = async (id, nickname) => {
   return getUserById(id);
 };
 
+const updateUserRole = async (id, role) => {
+  await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+  return getUserById(id);
+};
+
 // orders/wishlists의 FK ON DELETE 정책(SET NULL/CASCADE)이 연쇄 처리를 담당하므로
 // 여기서는 users 행만 삭제한다.
 const deleteUser = async (id) => {
@@ -54,5 +59,6 @@ module.exports = {
   updateUserEmail,
   updateUserPassword,
   updateUserNickname,
+  updateUserRole,
   deleteUser
 };

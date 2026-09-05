@@ -101,8 +101,10 @@ VALUES
 
 ('익산전통식품 장류 세트 교환권', '익산전통식품', 35000, 'https://placehold.co/300x300', '전통 방식으로 오랜 시간 숙성한 된장과 고추장으로 구성한 장류 세트입니다. 깊은 감칠맛으로 다양한 요리에 두루 활용하기 좋습니다.', '발급일로부터 365일', '교환권 제시 후 매장에서 장류 세트로 교환 가능합니다.', '익산전통식품', '본 교환권은 익산 기프트에서 발급되며, 매장에서 바코드를 제시하면 교환·사용 처리됩니다. 바코드를 사용하기 전까지는 취소·환불이 가능하지만, 이미 사용 처리되었거나 유효기간이 지난 교환권은 환불이 불가합니다.', (SELECT id FROM categories WHERE name = '지역특산 선물세트'));
 
+-- admin@example.com은 로컬/시드 환경 전용 관리자 계정이다. 운영 DB에는 이 계정이
+-- 없으므로, 운영에서는 실제 관리자가 될 팀원 계정을 별도로 승격해야 한다(migrate_admin_role.sql 참고).
 INSERT IGNORE INTO users
-(email, password, nickname)
+(email, password, nickname, role)
 VALUES
-('test@example.com', '$2b$12$cW1e26NahtBdojprc7/CW.0I1LsMGp7Jk7.IxusI39JJZFKVDoGj6', '테스트유저'),
-('admin@example.com', '$2b$12$.zT/cEpmxOlibWfJXk6soe8SLuDuSPSAmLmdQhJYgHnVcwUJLDAeG', '관리자');
+('test@example.com', '$2b$12$cW1e26NahtBdojprc7/CW.0I1LsMGp7Jk7.IxusI39JJZFKVDoGj6', '테스트유저', 'user'),
+('admin@example.com', '$2b$12$.zT/cEpmxOlibWfJXk6soe8SLuDuSPSAmLmdQhJYgHnVcwUJLDAeG', '관리자', 'admin');

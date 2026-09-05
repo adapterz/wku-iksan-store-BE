@@ -10,7 +10,7 @@ describe('productModel.getAllProducts', () => {
     jest.resetAllMocks();
   });
 
-  test('조건이 없으면 카테고리를 조인해 전체 상품을 조회', async () => {
+  test('조건이 없으면 카테고리를 조인해 active 상태 상품만 조회', async () => {
     const rows = [{ id: 1, category_id: 1, category_name: '음료' }];
     pool.query.mockResolvedValue([rows]);
 
@@ -21,7 +21,7 @@ describe('productModel.getAllProducts', () => {
     expect(query).toContain('JOIN categories c ON p.category_id = c.id');
     expect(query).toContain('LEFT JOIN wishlists w ON w.product_id = p.id');
     expect(query).toContain('GROUP BY p.id, c.name');
-    expect(query).not.toContain('WHERE');
+    expect(query).toContain("WHERE p.status = 'active'");
     expect(params).toEqual([]);
     expect(result).toEqual(rows);
   });
@@ -125,7 +125,7 @@ describe('productModel.getAllProducts', () => {
     await productModel.getAllProducts({ categoryId: 2 });
     const [query, params] = pool.query.mock.calls[0];
 
-    expect(query).toContain('WHERE p.category_id = ?');
+    expect(query).toContain("WHERE p.status = 'active' AND p.category_id = ?");
     expect(params).toEqual([2]);
   });
 
@@ -155,7 +155,7 @@ describe('productModel.getAllProducts', () => {
     await productModel.getAllProducts({ brand: '익산로컬푸드' });
     const [query, params] = pool.query.mock.calls[0];
 
-    expect(query).toContain('WHERE p.brand = ?');
+    expect(query).toContain("WHERE p.status = 'active' AND p.brand = ?");
     expect(params).toEqual(['익산로컬푸드']);
   });
 
@@ -198,6 +198,7 @@ describe('productModel.getProductRanking', () => {
     const [query, params] = pool.query.mock.calls[0];
 
     expect(query).toContain('LEFT JOIN wishlists w ON w.product_id = p.id');
+    expect(query).toContain("WHERE p.status = 'active'");
     expect(query).toContain('GROUP BY p.id, c.name');
     expect(query).toContain('HAVING wishlist_count > 0');
     expect(query).toContain('ORDER BY wishlist_count DESC, p.id ASC');
@@ -226,7 +227,7 @@ describe('productModel.getProductById', () => {
 
     expect(query).toContain('FROM products p');
     expect(query).toContain('JOIN categories c ON p.category_id = c.id');
-    expect(query).toContain('WHERE p.id = ?');
+    expect(query).toContain("WHERE p.id = ? AND p.status = 'active'");
     expect(params).toEqual([1]);
     expect(result).toEqual(product);
   });
@@ -235,6 +236,115 @@ describe('productModel.getProductById', () => {
     pool.query.mockResolvedValue([[]]);
 
     const result = await productModel.getProductById(999);
+
+    expect(result).toBeNull();
+  });
+
+  test('숨김 상품은 조회되지 않음(상태 필터로 걸러짐, 모델은 SQL 위임)', async () => {
+    pool.query.mockResolvedValue([[]]);
+
+    const result = await productModel.getProductById(1);
+    const [query] = pool.query.mock.calls[0];
+
+    expect(query).toContain("p.status = 'active'");
+    expect(result).toBeNull();
+  });
+});
+
+describe('productModel.getProductByIdIgnoringStatus', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test('상태와 무관하게 상품을 조회하고 status를 함께 반환', async () => {
+    const product = { id: 1, name: '상품A', status: 'hidden' };
+    pool.query.mockResolvedValue([[product]]);
+
+    const result = await productModel.getProductByIdIgnoringStatus(1);
+    const [query, params] = pool.query.mock.calls[0];
+
+    expect(query).not.toContain("status = 'active'");
+    expect(query).toContain('p.status');
+    expect(params).toEqual([1]);
+    expect(result).toEqual(product);
+  });
+});
+
+describe('productModel.createProduct', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test('전달된 필드로 INSERT 후 생성된 상품을 재조회', async () => {
+    pool.query
+      .mockResolvedValueOnce([{ insertId: 5 }])
+      .mockResolvedValueOnce([[{ id: 5, name: '새 상품', status: 'active' }]]);
+
+    const result = await productModel.createProduct({
+      name: '새 상품',
+      brand: '테스트브랜드',
+      price: 1000,
+      category_id: 1
+    });
+
+    const [insertQuery, insertParams] = pool.query.mock.calls[0];
+    expect(insertQuery).toContain('INSERT INTO products');
+    expect(insertParams).toEqual(['새 상품', '테스트브랜드', 1000, null, null, null, null, null, null, null, 1]);
+    expect(result).toEqual({ id: 5, name: '새 상품', status: 'active' });
+  });
+});
+
+describe('productModel.updateProduct', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test('전달된 필드만 부분 수정', async () => {
+    pool.query
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([[{ id: 1, price: 2000 }]]);
+
+    const result = await productModel.updateProduct(1, { price: 2000 });
+    const [query, params] = pool.query.mock.calls[0];
+
+    expect(query).toBe('UPDATE products SET price = ? WHERE id = ?');
+    expect(params).toEqual([2000, 1]);
+    expect(result).toEqual({ id: 1, price: 2000 });
+  });
+
+  test('상품이 없으면 null 반환', async () => {
+    pool.query.mockResolvedValue([{ affectedRows: 0 }]);
+
+    const result = await productModel.updateProduct(999, { price: 2000 });
+
+    expect(result).toBeNull();
+  });
+});
+
+describe('productModel.updateProductStatus', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  test('상태 변경 후 갱신된 상품을 재조회', async () => {
+    pool.query
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([[{ id: 1, status: 'hidden' }]]);
+
+    const result = await productModel.updateProductStatus(1, 'hidden');
+
+    expect(pool.query).toHaveBeenNthCalledWith(
+      1,
+      'UPDATE products SET status = ? WHERE id = ?',
+      ['hidden', 1]
+    );
+    expect(result).toEqual({ id: 1, status: 'hidden' });
+  });
+
+  test('상품이 없으면 null 반환', async () => {
+    pool.query.mockResolvedValue([{ affectedRows: 0 }]);
+
+    const result = await productModel.updateProductStatus(999, 'hidden');
 
     expect(result).toBeNull();
   });

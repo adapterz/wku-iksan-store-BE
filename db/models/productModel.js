@@ -28,8 +28,11 @@ const createRelevanceParams = (keyword) => {
   ];
 };
 
+// 관리자 페이지에서 숨김/단종 처리한 상품은 고객 대상 조회에서 전부 제외한다(이슈 #90).
+const ACTIVE_STATUS_CONDITION = "p.status = 'active'";
+
 const getAllProducts = async ({ keyword = null, categoryId = null, brand = null } = {}) => {
-  const conditions = [];
+  const conditions = [ACTIVE_STATUS_CONDITION];
   const params = [];
   const relevanceParams = [];
   let orderByClause = '';
@@ -134,6 +137,7 @@ const getProductRanking = async () => {
     FROM products p
     JOIN categories c ON p.category_id = c.id
     LEFT JOIN wishlists w ON w.product_id = p.id
+    WHERE ${ACTIVE_STATUS_CONDITION}
     GROUP BY p.id, c.name
     HAVING wishlist_count > 0
     ORDER BY wishlist_count DESC, p.id ASC
@@ -160,14 +164,83 @@ const getProductById = async (id) => {
       c.name AS category_name
     FROM products p
     JOIN categories c ON p.category_id = c.id
+    WHERE p.id = ? AND ${ACTIVE_STATUS_CONDITION}
+  `, [id]);
+  return rows.length > 0 ? rows[0] : null;
+};
+
+// 관리자 화면은 숨김/단종 상품도 조회·수정할 수 있어야 하므로 상태 필터를 적용하지 않는다.
+const getProductByIdIgnoringStatus = async (id) => {
+  const [rows] = await pool.query(`
+    SELECT
+      p.id,
+      p.name,
+      p.brand,
+      p.price,
+      p.thumbnail_url,
+      p.description,
+      p.description_image_url,
+      p.valid_period,
+      p.usage_method,
+      p.exchange_location,
+      p.caution,
+      p.category_id,
+      c.name AS category_name,
+      p.status
+    FROM products p
+    JOIN categories c ON p.category_id = c.id
     WHERE p.id = ?
   `, [id]);
   return rows.length > 0 ? rows[0] : null;
+};
+
+const PRODUCT_INSERT_COLUMNS = [
+  'name', 'brand', 'price', 'thumbnail_url', 'description', 'description_image_url',
+  'valid_period', 'usage_method', 'exchange_location', 'caution', 'category_id'
+];
+
+const createProduct = async (fields) => {
+  const [result] = await pool.query(
+    `INSERT INTO products (${PRODUCT_INSERT_COLUMNS.join(', ')})
+     VALUES (${PRODUCT_INSERT_COLUMNS.map(() => '?').join(', ')})`,
+    PRODUCT_INSERT_COLUMNS.map(column => (fields[column] !== undefined ? fields[column] : null))
+  );
+  return getProductByIdIgnoringStatus(result.insertId);
+};
+
+// fields에 전달된 컬럼만 부분 수정한다(리뷰 수정 API와 동일한 패턴).
+const updateProduct = async (id, fields) => {
+  const columns = PRODUCT_INSERT_COLUMNS.filter(column => fields[column] !== undefined);
+  if (columns.length === 0) {
+    return getProductByIdIgnoringStatus(id);
+  }
+
+  const setClause = columns.map(column => `${column} = ?`).join(', ');
+  const params = columns.map(column => fields[column]);
+  params.push(id);
+
+  const [result] = await pool.query(`UPDATE products SET ${setClause} WHERE id = ?`, params);
+  if (result.affectedRows === 0) {
+    return null;
+  }
+  return getProductByIdIgnoringStatus(id);
+};
+
+const updateProductStatus = async (id, status) => {
+  const [result] = await pool.query('UPDATE products SET status = ? WHERE id = ?', [status, id]);
+  if (result.affectedRows === 0) {
+    return null;
+  }
+  return getProductByIdIgnoringStatus(id);
 };
 
 module.exports = {
   PRODUCT_RANKING_LIMIT,
   getAllProducts,
   getProductRanking,
-  getProductById
+  getProductById,
+  getProductByIdIgnoringStatus,
+  createProduct,
+  updateProduct,
+  updateProductStatus
 };
