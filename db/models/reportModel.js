@@ -5,8 +5,8 @@ const REPORT_SELECT = `
          review_rating_snapshot, reason, status, created_at
   FROM reports`;
 
-const getReportById = async (id) => {
-  const [rows] = await pool.query(`${REPORT_SELECT} WHERE id = ?`, [id]);
+const getReportById = async (id, connection = pool) => {
+  const [rows] = await connection.query(`${REPORT_SELECT} WHERE id = ?`, [id]);
   return rows.length > 0 ? rows[0] : null;
 };
 
@@ -39,12 +39,14 @@ const getReports = async ({ status = null, page, limit }) => {
   return { rows, totalCount: Number(totals[0].total) };
 };
 
-const updateReportStatus = async (id, status) => {
-  const [result] = await pool.query('UPDATE reports SET status = ? WHERE id = ?', [status, id]);
+// connection을 넘기면 그 트랜잭션 안에서 실행한다(신고 처리와 리뷰 숨김을 하나로
+// 묶어야 할 때 사용). 안 넘기면 지금처럼 단독 쿼리로 처리한다.
+const updateReportStatus = async (id, status, connection = pool) => {
+  const [result] = await connection.query('UPDATE reports SET status = ? WHERE id = ?', [status, id]);
   if (result.affectedRows === 0) {
     return null;
   }
-  return getReportById(id);
+  return getReportById(id, connection);
 };
 
 module.exports = {
