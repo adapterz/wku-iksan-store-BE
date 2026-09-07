@@ -10,7 +10,7 @@ describe('GET /api/brands', () => {
     jest.resetAllMocks();
   });
 
-  test('keyword가 없으면 대표 브랜드 목록을 반환', async () => {
+  test('keyword가 없으면 전체 브랜드 목록을 반환', async () => {
     brandModel.getBrands.mockResolvedValue([
       { brand: '익산로컬푸드', product_count: 2, thumbnail_url: 'a.jpg' }
     ]);

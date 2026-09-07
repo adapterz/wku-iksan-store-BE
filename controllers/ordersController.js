@@ -35,6 +35,9 @@ async function createOrder(req, res) {
       return sendError(res, ERROR.RECEIVER_NOT_FOUND);
     }
 
+    // 탈퇴/닉네임 변경 이후에도 주문 당시 닉네임을 그대로 보여주기 위한 스냅샷
+    const sender = await userModel.getUserById(userId);
+
     // 12자리 난수 생성 (바코드)
     let barcode = '';
     for (let i = 0; i < 12; i++) {
@@ -44,8 +47,10 @@ async function createOrder(req, res) {
     const finalTotalPrice = product.price; // 서버에서 직접 상품 가격 조회
     const { orderId, giftId } = await orderModel.createOrderWithGift(
       userId,
+      sender.nickname,
       productId,
       finalReceiverId,
+      receiver.nickname,
       finalTotalPrice,
       message || null,
       isSelfGift,
@@ -77,8 +82,8 @@ async function getOrderDetail(req, res) {
       return sendError(res, ERROR.FORBIDDEN_NOT_OWNER);
     }
 
-    const receiver = await userModel.getUserById(order.receiver_id);
-    const product = await productModel.getProductById(order.product_id);
+    // 과거 주문 이력이므로, 이후 상품이 숨김/단종 처리되어도 상품 정보가 사라지면 안 된다.
+    const product = await productModel.getProductByIdIgnoringStatus(order.product_id);
     const gift = await orderModel.getGiftByOrderId(order.id);
 
     return sendSuccess(res, {
@@ -94,10 +99,10 @@ async function getOrderDetail(req, res) {
         totalPrice: order.total_price,
         message: order.message,
         isSelfGift: !!order.is_self_gift,
-        receiver: receiver ? {
-          userId: receiver.id,
-          nickname: receiver.nickname
-        } : null,
+        receiver: {
+          userId: order.receiver_id,
+          nickname: order.receiver_nickname_snapshot
+        },
         paymentStatus: order.payment_status,
         giftId: gift ? gift.id : null,
         createdAt: order.created_at

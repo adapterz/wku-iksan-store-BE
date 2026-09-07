@@ -11,6 +11,11 @@ const giftsRouter = require('./routes/gifts');
 const categoriesRouter = require('./routes/categories');
 const wishlistsRouter = require('./routes/wishlists');
 const brandsRouter = require('./routes/brands');
+const adminUsersRouter = require('./routes/admin/users');
+const adminProductsRouter = require('./routes/admin/products');
+const adminCategoriesRouter = require('./routes/admin/categories');
+const adminReviewsRouter = require('./routes/admin/reviews');
+const reviewsRouter = require('./routes/reviews');
 
 const { sendError } = require('./routes/api');
 const { SESSION_COOKIE_NAME, getSessionCookieOptions } = require('./constants/session');
@@ -69,6 +74,11 @@ app.use('/api/gifts', giftsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/wishlists', wishlistsRouter);
 app.use('/api/brands', brandsRouter);
+app.use('/api/admin/users', adminUsersRouter);
+app.use('/api/admin/products', adminProductsRouter);
+app.use('/api/admin/categories', adminCategoriesRouter);
+app.use('/api/admin/reviews', adminReviewsRouter);
+app.use('/api/reviews', reviewsRouter);
 
 // 정의되지 않은 경로 처리 (Express 기본 404 HTML 대신 통일된 JSON 응답)
 app.use((req, res) => {

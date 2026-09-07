@@ -20,7 +20,8 @@ describe('GET /api/products', () => {
         price: 1000,
         thumbnail_url: 'a.jpg',
         category_id: 2,
-        category_name: '간식'
+        category_name: '간식',
+        wishlist_count: 3
       }
     ]);
     const app = createTestApp('/api/products', productsRouter);
@@ -42,7 +43,8 @@ describe('GET /api/products', () => {
         price: 1000,
         thumbnailUrl: 'a.jpg',
         categoryId: 2,
-        categoryName: '간식'
+        categoryName: '간식',
+        wishlistCount: 3
       }
     ]);
   });
@@ -363,7 +365,11 @@ describe('GET /api/products/:id', () => {
       price: 1000,
       thumbnail_url: 'a.jpg',
       description: '설명',
-      usage_info: '사용법',
+      description_image_url: 'a-desc.jpg',
+      valid_period: '유효기간',
+      usage_method: '사용법',
+      exchange_location: '교환처',
+      caution: '주의사항',
       category_id: 2,
       category_name: '간식'
     });
@@ -381,7 +387,11 @@ describe('GET /api/products/:id', () => {
       price: 1000,
       thumbnailUrl: 'a.jpg',
       description: '설명',
-      usageInfo: '사용법',
+      descriptionImageUrl: 'a-desc.jpg',
+      validPeriod: '유효기간',
+      usageMethod: '사용법',
+      exchangeLocation: '교환처',
+      caution: '주의사항',
       categoryId: 2,
       categoryName: '간식'
     });

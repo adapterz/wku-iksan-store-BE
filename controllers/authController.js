@@ -192,7 +192,8 @@ async function me(req, res) {
       data: {
         userId: user.id,
         email: user.email,
-        nickname: user.nickname
+        nickname: user.nickname,
+        role: user.role
       }
     });
   } catch (error) {

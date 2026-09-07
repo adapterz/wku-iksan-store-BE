@@ -37,7 +37,8 @@ const getWishlistsByUserId = async (userId) => {
       p.price AS product_price,
       p.thumbnail_url AS thumbnail_url,
       p.category_id AS category_id,
-      c.name AS category_name
+      c.name AS category_name,
+      p.status AS product_status
     FROM wishlists w
     JOIN products p ON w.product_id = p.id
     JOIN categories c ON p.category_id = c.id

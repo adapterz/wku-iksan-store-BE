@@ -226,3 +226,33 @@ describe('PATCH /api/gifts/:id/use', () => {
     expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
   });
 });
+
+describe('리뷰 연동 선물 응답', () => {
+  afterEach(() => jest.resetAllMocks());
+  const gift = {
+    gift_id: 10, product_id: 3, receiver_id: 1, payment_status: 'paid',
+    status: 'used', review_id: null
+  };
+  test.each([
+    [{}, true, null],
+    [{ review_id: 9 }, false, 9],
+    [{ status: 'unused' }, false, null],
+    [{ payment_status: 'pending' }, false, null]
+  ])('목록·상세 작성 가능 조건 %p', async (changes, canReview, reviewId) => {
+    giftModel.getGiftsByReceiverId.mockResolvedValue([{ ...gift, ...changes }]);
+    giftModel.getGiftDetailById.mockResolvedValue({ ...gift, ...changes });
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+    const list = await request(app).get('/api/gifts');
+    const detail = await request(app).get('/api/gifts/10');
+    for (const response of [list, detail]) {
+      expect(response.status).toBe(200);
+      expect(response.headers['cache-control']).toBe('private, no-store');
+    }
+    expect(list.body.data[0]).toMatchObject({ productId: 3, canReview, reviewId });
+    expect(detail.body.data).toMatchObject({ productId: 3, canReview, reviewId });
+  });
+  test('미인증 선물 응답에도 no-store', async () => {
+    const app = createTestApp('/api/gifts', giftsRouter);
+    expect((await request(app).get('/api/gifts')).headers['cache-control']).toBe('private, no-store');
+  });
+});
