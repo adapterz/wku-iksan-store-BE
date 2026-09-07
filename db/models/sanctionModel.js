@@ -18,6 +18,11 @@ const countWarnings = async (userId) => {
   return Number(rows[0].total);
 };
 
+// endsAt은 JS Date 객체를 그대로 저장한다. db/pool.js에 timezone 설정이 없어 mysql2가
+// Node 프로세스의 로컬 타임존 기준으로 변환해서 저장하고, 읽어올 때도 동일 기준으로
+// 되돌리므로 이 앱 안에서 주고받는 값은 일관된다. 다만 나중에 정지 여부 판단 훅에서
+// SQL의 NOW()와 직접 비교하는 코드를 추가할 때는, MySQL 서버 세션 타임존이 Node
+// 프로세스 타임존과 다르면 오차가 생길 수 있으니 그때 반드시 확인해야 한다.
 const createSanction = async (userId, issuedBy, { type, reason, endsAt }) => {
   const [result] = await pool.query(
     `INSERT INTO user_sanctions (user_id, type, reason, issued_by, ends_at)
