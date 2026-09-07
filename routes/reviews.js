@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const controller = require('../controllers/reviewsController');
+const reportsController = require('../controllers/reportsController');
 const requireLogin = require('../middlewares/requireLogin');
 const reviewCache = require('../middlewares/reviewCache');
 
@@ -10,5 +11,6 @@ router.get('/me', controller.getMyReviews);
 router.get('/:id', controller.getReviewDetail);
 router.patch('/:id', controller.updateReview);
 router.delete('/:id', controller.deleteReview);
+router.post('/:id/reports', reportsController.createReport);
 
 module.exports = router;

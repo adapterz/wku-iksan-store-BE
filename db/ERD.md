@@ -64,6 +64,39 @@ CREATE INDEX idx_reviews_user_created
 CHECK는 리뷰 테이블에 먼저 도입하며 MySQL 8.0.16 이상에서 동작을 확인합니다.
 기존 테이블의 CHECK 전환, 관리자 API·신고·이미지 리뷰는 이번 범위 밖입니다.
 
+## 신고 관계
+
+- reviews 1 : reports N, users(신고자) 1 : reports N.
+- 신고 대상은 초기에는 리뷰만 지원(이슈 #90 6절). 사용자·상품 신고는 범위 밖.
+- review_id/reporter_id는 SET NULL(CASCADE 아님). 리뷰 작성자가 신고 처리 전에 리뷰를
+  삭제하거나 신고자가 탈퇴해도, 신고 시점의 리뷰 내용·별점 스냅샷(review_content_snapshot,
+  review_rating_snapshot)이 남아있어 관리자가 계속 조치할 수 있다.
+- 동일 사용자의 동일 리뷰 중복 신고는 UNIQUE(review_id, reporter_id)로 금지.
+- status는 pending/dismissed/actioned. reviews와 달리 CHECK 제약은 걸지 않고
+  애플리케이션 검증으로만 통제(#77 검토 반영 요약 2번 참고).
+
+```sql
+CREATE TABLE reports (
+    id                       BIGINT AUTO_INCREMENT PRIMARY KEY,
+    review_id                BIGINT,
+    reporter_id              BIGINT,
+    review_content_snapshot  VARCHAR(1000) NOT NULL,
+    review_rating_snapshot   TINYINT NOT NULL,
+    reason                   VARCHAR(500) NOT NULL,
+    status                   VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_reports_review_reporter UNIQUE (review_id, reporter_id),
+    CONSTRAINT fk_reports_review
+        FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE SET NULL,
+    CONSTRAINT fk_reports_reporter
+        FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_reports_status_created
+    ON reports (status, created_at, id);
+```
+
 ## 검증·배포
 
 재현 방법과 응답 규칙: [리뷰 API 구현·검증 안내](../docs/BE/REVIEWS.md).
