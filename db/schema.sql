@@ -106,3 +106,22 @@ CREATE INDEX idx_reviews_product_status_created
 
 CREATE INDEX idx_reviews_user_created
     ON reviews (user_id, created_at, id);
+
+CREATE TABLE user_sanctions (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
+    type            VARCHAR(20) NOT NULL,
+    reason          VARCHAR(500) NOT NULL,
+    issued_by       BIGINT,
+    ends_at         DATETIME,
+    status          VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_sanctions_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_sanctions_admin
+        FOREIGN KEY (issued_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_sanctions_user_created
+    ON user_sanctions (user_id, created_at, id);

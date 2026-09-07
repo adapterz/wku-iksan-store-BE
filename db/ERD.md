@@ -64,6 +64,41 @@ CREATE INDEX idx_reviews_user_created
 CHECK는 리뷰 테이블에 먼저 도입하며 MySQL 8.0.16 이상에서 동작을 확인합니다.
 기존 테이블의 CHECK 전환, 관리자 API·신고·이미지 리뷰는 이번 범위 밖입니다.
 
+## 회원 제재 관계
+
+- users(제재 대상) 1 : user_sanctions N, users(관리자) 1 : user_sanctions N(issued_by).
+- type은 warning/suspension. warning은 ends_at NULL, suspension은 ends_at 필수(이슈 #90 7절).
+- 경고가 이미 1건 이상 있는 유저에게 또 경고를 주려는 요청은 애플리케이션 레벨에서 거부한다
+  (자동 격상 없음, 관리자가 명시적으로 suspension을 다시 요청해야 함).
+- status는 active/lifted. 정지의 자연 만료는 상태를 바꾸지 않고 조회 시점에 ends_at으로 판단.
+- user_id는 CASCADE(유저가 사라지면 그 유저에 대한 제재 기록도 의미가 없음), issued_by는
+  SET NULL(제재를 내린 관리자가 나중에 탈퇴해도 제재 기록 자체는 유지). CHECK 제약은
+  reviews에만 우선 적용하기로 했으므로 여기서도 걸지 않는다.
+
+```sql
+CREATE TABLE user_sanctions (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
+    type            VARCHAR(20) NOT NULL,
+    reason          VARCHAR(500) NOT NULL,
+    issued_by       BIGINT,
+    ends_at         DATETIME,
+    status          VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_sanctions_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_sanctions_admin
+        FOREIGN KEY (issued_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_sanctions_user_created
+    ON user_sanctions (user_id, created_at, id);
+```
+
+리뷰 작성 제한 훅(`POST /api/reviews`)과 계정 삭제 시 활성 정지 확인(`DELETE /api/users/me`)은
+이 마이그레이션 범위 밖이며 후속 작업입니다(이슈 #90 7-3, 7-5절).
+
 ## 검증·배포
 
 재현 방법과 응답 규칙: [리뷰 API 구현·검증 안내](../docs/BE/REVIEWS.md).
