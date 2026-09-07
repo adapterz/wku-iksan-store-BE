@@ -50,10 +50,14 @@ async function main() {
     const schema = fs.readFileSync(path.join(__dirname, '../db/schema.sql'), 'utf8');
     const migration = fs.readFileSync(path.join(__dirname, '../db/migrate_reviews.sql'), 'utf8');
     // 기존 스키마 + 마이그레이션 경로를 실제로 검증.
-    await runSql(schema.slice(0, schema.indexOf('CREATE TABLE reviews')));
+    const reviewsStart = schema.indexOf('CREATE TABLE reviews');
+    // reviews 테이블 정의는 schema.sql에서 파일 끝까지가 아니라 reports 등 이후에 추가된
+    // 다른 테이블 앞까지다. 그 경계를 못 찾으면(reviews가 파일의 마지막 테이블이면) 끝까지 쓴다.
+    const reviewsEnd = schema.indexOf('CREATE TABLE reports');
+    const reviewsSection = (reviewsEnd === -1 ? schema.slice(reviewsStart) : schema.slice(reviewsStart, reviewsEnd)).trim();
+    await runSql(schema.slice(0, reviewsStart));
     await runSql(migration);
-    check(schema.slice(schema.indexOf('CREATE TABLE reviews')).trim() ===
-      migration.replace(/^--.*$/gm, '').trim(), 'Fresh schema and migration must match');
+    check(reviewsSection === migration.replace(/^--.*$/gm, '').trim(), 'Fresh schema and migration must match');
 
     pool = require('../db/pool');
     const reviewModel = require('../db/models/reviewModel');

@@ -15,6 +15,7 @@ const adminUsersRouter = require('./routes/admin/users');
 const adminProductsRouter = require('./routes/admin/products');
 const adminCategoriesRouter = require('./routes/admin/categories');
 const adminReviewsRouter = require('./routes/admin/reviews');
+const adminReportsRouter = require('./routes/admin/reports');
 const reviewsRouter = require('./routes/reviews');
 
 const { sendError } = require('./routes/api');
@@ -78,6 +79,7 @@ app.use('/api/admin/users', adminUsersRouter);
 app.use('/api/admin/products', adminProductsRouter);
 app.use('/api/admin/categories', adminCategoriesRouter);
 app.use('/api/admin/reviews', adminReviewsRouter);
+app.use('/api/admin/reports', adminReportsRouter);
 app.use('/api/reviews', reviewsRouter);
 
 // 정의되지 않은 경로 처리 (Express 기본 404 HTML 대신 통일된 JSON 응답)
