@@ -94,7 +94,8 @@ async function getOrderDetail(req, res) {
           id: product.id,
           name: product.name,
           brand: product.brand,
-          thumbnailUrl: product.thumbnail_url
+          thumbnailUrl: product.thumbnail_url,
+          validPeriod: product.valid_period
         } : null,
         totalPrice: order.total_price,
         message: order.message,

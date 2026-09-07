@@ -186,7 +186,7 @@ describe('GET /api/orders/:id', () => {
       created_at: '2026-07-29T00:00:00.000Z'
     });
     productModel.getProductByIdIgnoringStatus.mockResolvedValue({
-      id: 1, name: '상품A', brand: '브랜드A', thumbnail_url: 'a.jpg'
+      id: 1, name: '상품A', brand: '브랜드A', thumbnail_url: 'a.jpg', valid_period: '발급일로부터 90일'
     });
     orderModel.getGiftByOrderId.mockResolvedValue({ id: 5 });
     const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
@@ -198,7 +198,9 @@ describe('GET /api/orders/:id', () => {
     expect(res.body.data.orderId).toBe(1);
     expect(res.body.data.giftId).toBe(5);
     expect(res.body.data.receiver).toEqual({ userId: 1, nickname: 'aon' });
-    expect(res.body.data.product).toEqual({ id: 1, name: '상품A', brand: '브랜드A', thumbnailUrl: 'a.jpg' });
+    expect(res.body.data.product).toEqual({
+      id: 1, name: '상품A', brand: '브랜드A', thumbnailUrl: 'a.jpg', validPeriod: '발급일로부터 90일'
+    });
   });
 
   test('상품이 숨김/단종 처리돼도 과거 주문의 상품 정보는 그대로 반환', async () => {
@@ -215,7 +217,7 @@ describe('GET /api/orders/:id', () => {
       created_at: '2026-07-29T00:00:00.000Z'
     });
     productModel.getProductByIdIgnoringStatus.mockResolvedValue({
-      id: 1, name: '단종된 상품', brand: '브랜드A', thumbnail_url: 'a.jpg', status: 'discontinued'
+      id: 1, name: '단종된 상품', brand: '브랜드A', thumbnail_url: 'a.jpg', valid_period: '발급일로부터 90일', status: 'discontinued'
     });
     orderModel.getGiftByOrderId.mockResolvedValue({ id: 5 });
     const app = createTestApp('/api/orders', ordersRouter, { session: LOGGED_IN });
@@ -224,7 +226,7 @@ describe('GET /api/orders/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.product).toEqual({
-      id: 1, name: '단종된 상품', brand: '브랜드A', thumbnailUrl: 'a.jpg'
+      id: 1, name: '단종된 상품', brand: '브랜드A', thumbnailUrl: 'a.jpg', validPeriod: '발급일로부터 90일'
     });
     expect(productModel.getProductById).not.toHaveBeenCalled();
   });
