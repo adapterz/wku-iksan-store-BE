@@ -15,6 +15,7 @@ const adminUsersRouter = require('./routes/admin/users');
 const adminProductsRouter = require('./routes/admin/products');
 const adminCategoriesRouter = require('./routes/admin/categories');
 const adminReviewsRouter = require('./routes/admin/reviews');
+const adminReportsRouter = require('./routes/admin/reports');
 const adminSanctionsRouter = require('./routes/admin/sanctions');
 const reviewsRouter = require('./routes/reviews');
 
@@ -79,6 +80,7 @@ app.use('/api/admin/users', adminUsersRouter);
 app.use('/api/admin/products', adminProductsRouter);
 app.use('/api/admin/categories', adminCategoriesRouter);
 app.use('/api/admin/reviews', adminReviewsRouter);
+app.use('/api/admin/reports', adminReportsRouter);
 app.use('/api/admin/sanctions', adminSanctionsRouter);
 app.use('/api/reviews', reviewsRouter);
 

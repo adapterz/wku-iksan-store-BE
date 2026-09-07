@@ -107,6 +107,26 @@ CREATE INDEX idx_reviews_product_status_created
 CREATE INDEX idx_reviews_user_created
     ON reviews (user_id, created_at, id);
 
+CREATE TABLE reports (
+    id                       BIGINT AUTO_INCREMENT PRIMARY KEY,
+    review_id                BIGINT,
+    reporter_id              BIGINT,
+    review_content_snapshot  VARCHAR(1000) NOT NULL,
+    review_rating_snapshot   TINYINT NOT NULL,
+    reason                   VARCHAR(500) NOT NULL,
+    status                   VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_reports_review_reporter UNIQUE (review_id, reporter_id),
+    CONSTRAINT fk_reports_review
+        FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE SET NULL,
+    CONSTRAINT fk_reports_reporter
+        FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_reports_status_created
+    ON reports (status, created_at, id);
+
 CREATE TABLE user_sanctions (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id         BIGINT NOT NULL,

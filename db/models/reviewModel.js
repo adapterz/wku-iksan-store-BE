@@ -124,15 +124,23 @@ async function mutateOwnedReview(id, userId, changes) {
   });
 }
 
-async function updateReviewStatus(id, status) {
-  return transaction(async connection => {
-    const [rows] = await connection.query('SELECT status FROM reviews WHERE id = ? FOR UPDATE', [id]);
-    if (!rows.length) reject('REVIEW_NOT_FOUND');
-    if (rows[0].status !== status) {
-      await connection.query('UPDATE reviews SET status = ? WHERE id = ?', [status, id]);
-    }
-    return { reviewId: id, status };
-  });
+async function setReviewStatus(connection, id, status) {
+  const [rows] = await connection.query('SELECT status FROM reviews WHERE id = ? FOR UPDATE', [id]);
+  if (!rows.length) reject('REVIEW_NOT_FOUND');
+  if (rows[0].status !== status) {
+    await connection.query('UPDATE reviews SET status = ? WHERE id = ?', [status, id]);
+  }
+  return { reviewId: id, status };
+}
+
+// externalConnection이 있으면 그 트랜잭션에 그대로 얹어서 실행한다(커밋/롤백은 호출자
+// 책임). 없으면 지금처럼 이 함수가 자체 트랜잭션을 열고 커밋한다(신고 처리처럼 다른
+// 쓰기 작업과 하나의 트랜잭션으로 묶어야 할 때 사용).
+async function updateReviewStatus(id, status, externalConnection = null) {
+  if (externalConnection) {
+    return setReviewStatus(externalConnection, id, status);
+  }
+  return transaction(connection => setReviewStatus(connection, id, status));
 }
 
 module.exports = {
