@@ -3,9 +3,11 @@ const { createTestApp } = require('../helpers/testApp');
 
 jest.mock('../../../db/models/userModel');
 jest.mock('../../../db/models/giftModel');
+jest.mock('../../../db/models/sanctionModel');
 jest.mock('bcrypt');
 const userModel = require('../../../db/models/userModel');
 const giftModel = require('../../../db/models/giftModel');
+const sanctionModel = require('../../../db/models/sanctionModel');
 const bcrypt = require('bcrypt');
 const usersRouter = require('../../../routes/users');
 
@@ -391,13 +393,44 @@ describe('DELETE /api/users/me', () => {
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('ACCOUNT_HAS_UNUSED_GIFTS');
     expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'unused');
+    expect(sanctionModel.getActiveSuspension).not.toHaveBeenCalled();
     expect(userModel.deleteUser).not.toHaveBeenCalled();
+  });
+
+  test('활성 정지 중이면 409 ACCOUNT_HAS_ACTIVE_SANCTION (탈퇴로 제재 회피 방지)', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
+    bcrypt.compare.mockResolvedValue(true);
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    sanctionModel.getActiveSuspension.mockResolvedValue({ id: 9, type: 'suspension', status: 'active' });
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).delete('/api/users/me').send({ password: 'correctPw' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('ACCOUNT_HAS_ACTIVE_SANCTION');
+    expect(sanctionModel.getActiveSuspension).toHaveBeenCalledWith(1);
+    expect(userModel.deleteUser).not.toHaveBeenCalled();
+  });
+
+  test('경고만 있고 활성 정지가 없으면 삭제를 막지 않음', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
+    bcrypt.compare.mockResolvedValue(true);
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    sanctionModel.getActiveSuspension.mockResolvedValue(null);
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app).delete('/api/users/me').send({ password: 'correctPw' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('ACCOUNT_DELETE_SUCCESS');
+    expect(userModel.deleteUser).toHaveBeenCalledWith(1);
   });
 
   test('정상 삭제되면 200 ACCOUNT_DELETE_SUCCESS와 함께 세션 종료', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
     giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    sanctionModel.getActiveSuspension.mockResolvedValue(null);
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 
     const res = await request(app).delete('/api/users/me').send({ password: 'correctPw' });
@@ -416,6 +449,7 @@ describe('DELETE /api/users/me', () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
     giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    sanctionModel.getActiveSuspension.mockResolvedValue(null);
     const app = createTestApp('/api/users', usersRouter, {
       session: {
         userId: 1,

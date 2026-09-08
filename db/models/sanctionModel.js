@@ -68,6 +68,20 @@ const createSanction = async (userId, issuedBy, { type, reason, endsAt }) => {
   }
 };
 
+// DELETE /api/users/me에서 활성 정지 중인 유저의 탈퇴를 막기 위한 조회(이슈 #90 7-5절).
+// 정지의 자연 만료는 status를 바꾸지 않고 조회 시점에 ends_at으로 판단하는데, SQL의
+// NOW()는 MySQL 서버 세션 타임존 기준이라 Node 프로세스 타임존과 다르면 오차가 생길 수
+// 있다(createSanction 주석 참고). endsAt은 이 프로세스가 로컬 타임존 기준으로 쓰고
+// 읽으므로, SQL에서 비교하지 않고 그대로 읽어와 Node 프로세스 시계로 비교한다.
+const getActiveSuspension = async (userId, runner = pool) => {
+  const [rows] = await runner.query(
+    `${SANCTION_SELECT} WHERE user_id = ? AND type = 'suspension' AND status = 'active'`,
+    [userId]
+  );
+  const now = Date.now();
+  return rows.find(row => new Date(row.ends_at).getTime() > now) || null;
+};
+
 // 특정 유저의 제재 이력 — 최신순.
 const getUserSanctions = async (userId, { page, limit }) => {
   const [totals] = await pool.query(
@@ -97,6 +111,7 @@ module.exports = {
   getSanctionById,
   countWarnings,
   createSanction,
+  getActiveSuspension,
   getUserSanctions,
   liftSanction
 };

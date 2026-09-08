@@ -62,6 +62,31 @@ test('정지 등록은 트랜잭션 없이 바로 INSERT 후 생성된 행을 �
   expect(pool.getConnection).not.toHaveBeenCalled();
 });
 
+describe('getActiveSuspension', () => {
+  test('제재 이력이 없으면 null', async () => {
+    pool.query.mockResolvedValueOnce([[]]);
+    expect(await model.getActiveSuspension(5)).toBeNull();
+    expect(pool.query.mock.calls[0][0]).toContain("type = 'suspension'");
+    expect(pool.query.mock.calls[0][0]).toContain("status = 'active'");
+  });
+
+  test('만료되지 않은 활성 정지가 있으면 그 행을 반환', async () => {
+    const future = new Date(Date.now() + 1000 * 60 * 60);
+    const row = { id: 1, user_id: 5, type: 'suspension', status: 'active', ends_at: future };
+    pool.query.mockResolvedValueOnce([[row]]);
+
+    expect(await model.getActiveSuspension(5)).toEqual(row);
+  });
+
+  test('ends_at이 이미 지났으면 status가 active여도 null (자연 만료, SQL NOW() 대신 Node 시계로 판단)', async () => {
+    const past = new Date(Date.now() - 1000 * 60 * 60);
+    const row = { id: 1, user_id: 5, type: 'suspension', status: 'active', ends_at: past };
+    pool.query.mockResolvedValueOnce([[row]]);
+
+    expect(await model.getActiveSuspension(5)).toBeNull();
+  });
+});
+
 describe('경고 등록 (동시 요청 방지)', () => {
   const row = { id: 11, user_id: 5, type: 'warning', reason: '사유', issued_by: 1, ends_at: null, status: 'active' };
 
