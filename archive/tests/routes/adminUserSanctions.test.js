@@ -61,21 +61,21 @@ describe('POST /api/admin/users/:id/sanctions', () => {
     expect(sanctionModel.createSanction).not.toHaveBeenCalled();
   });
 
-  test('이미 경고가 있으면 409 WARNING_LIMIT_EXCEEDED', async () => {
+  test('이미 경고가 있으면(모델이 트랜잭션 안에서 재확인) 409 WARNING_LIMIT_EXCEEDED', async () => {
     mockAdminAndTarget();
-    sanctionModel.countWarnings.mockResolvedValue(1);
+    const error = new Error('WARNING_LIMIT_EXCEEDED');
+    error.sanctionError = 'WARNING_LIMIT_EXCEEDED';
+    sanctionModel.createSanction.mockRejectedValue(error);
     const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
 
     const res = await request(app).post('/api/admin/users/2/sanctions').send({ type: 'warning', reason: '두번째 경고' });
 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('WARNING_LIMIT_EXCEEDED');
-    expect(sanctionModel.createSanction).not.toHaveBeenCalled();
   });
 
-  test('첫 경고는 정상 등록 (countWarnings 호출)', async () => {
+  test('첫 경고는 정상 등록', async () => {
     mockAdminAndTarget();
-    sanctionModel.countWarnings.mockResolvedValue(0);
     sanctionModel.createSanction.mockResolvedValue(sanctionRow);
     const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
 
@@ -83,7 +83,6 @@ describe('POST /api/admin/users/:id/sanctions', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.code).toBe('ADMIN_SANCTION_CREATE_SUCCESS');
-    expect(sanctionModel.countWarnings).toHaveBeenCalledWith(2);
     expect(sanctionModel.createSanction).toHaveBeenCalledWith(2, 1, { type: 'warning', reason: '욕설', endsAt: null });
     expect(res.body.data).toEqual({
       sanctionId: 10, userId: 2, type: 'warning', reason: '욕설', issuedBy: 1,
@@ -91,7 +90,7 @@ describe('POST /api/admin/users/:id/sanctions', () => {
     });
   });
 
-  test('정지는 경고 카운트를 확인하지 않고 바로 등록', async () => {
+  test('정지는 경고 개수와 무관하게 바로 등록', async () => {
     mockAdminAndTarget();
     sanctionModel.createSanction.mockResolvedValue({ ...sanctionRow, type: 'suspension', ends_at: '2099-01-01T00:00:00.000Z' });
     const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
@@ -100,7 +99,6 @@ describe('POST /api/admin/users/:id/sanctions', () => {
       .send({ type: 'suspension', reason: '반복 위반', endsAt: '2099-01-01T00:00:00.000Z' });
 
     expect(res.status).toBe(201);
-    expect(sanctionModel.countWarnings).not.toHaveBeenCalled();
     expect(sanctionModel.createSanction).toHaveBeenCalledTimes(1);
   });
 });

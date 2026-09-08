@@ -46,6 +46,9 @@ function validateSanctionCreateInput(body = {}) {
     if (body.endsAt === undefined || body.endsAt === null || body.endsAt === '') {
       return { errorCode: 'REQUIRED_ENDS_AT' };
     }
+    if (typeof body.endsAt !== 'string' && typeof body.endsAt !== 'number') {
+      return { errorCode: 'INVALID_ENDS_AT' };
+    }
     const endsAt = new Date(body.endsAt);
     if (Number.isNaN(endsAt.getTime()) || endsAt.getTime() <= Date.now()) {
       return { errorCode: 'INVALID_ENDS_AT' };

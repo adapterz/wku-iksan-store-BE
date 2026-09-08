@@ -34,15 +34,11 @@ async function createSanction(req, res) {
     const targetUser = await userModel.getUserById(userId);
     if (!targetUser) return sendError(res, ERROR.USER_NOT_FOUND);
 
-    if (bodyValidation.value.type === 'warning') {
-      const warningCount = await sanctionModel.countWarnings(userId);
-      if (warningCount > 0) return sendError(res, ERROR.WARNING_LIMIT_EXCEEDED);
-    }
-
     const sanction = await sanctionModel.createSanction(userId, req.session.userId, bodyValidation.value);
 
     return sendSuccess(res, { ...SUCCESS.ADMIN_SANCTION_CREATE_SUCCESS, data: mapSanction(sanction) });
   } catch (error) {
+    if (error.sanctionError && ERROR[error.sanctionError]) return sendError(res, ERROR[error.sanctionError]);
     console.error('Error in POST /api/admin/users/:id/sanctions:', error);
     return sendError(res);
   }

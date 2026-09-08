@@ -63,6 +63,15 @@ describe('validateSanctionCreateInput', () => {
     }).errorCode).toBe('INVALID_ENDS_AT');
   });
 
+  test('정지의 endsAt이 객체/배열이면 예외 없이 INVALID_ENDS_AT', () => {
+    expect(validateSanctionCreateInput({
+      type: 'suspension', reason: '사유', endsAt: { toString: null }
+    }).errorCode).toBe('INVALID_ENDS_AT');
+    expect(validateSanctionCreateInput({
+      type: 'suspension', reason: '사유', endsAt: ['2099-01-01']
+    }).errorCode).toBe('INVALID_ENDS_AT');
+  });
+
   test('정지는 미래 endsAt을 Date로 변환해 반환', () => {
     const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
     const result = validateSanctionCreateInput({ type: 'suspension', reason: '반복 위반', endsAt: future });
