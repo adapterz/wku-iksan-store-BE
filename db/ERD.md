@@ -97,6 +97,42 @@ CREATE INDEX idx_reports_status_created
     ON reports (status, created_at, id);
 ```
 
+## 문의하기 관계
+
+- users 1 : inquiries N.
+- 문의는 계정 삭제 시 함께 삭제한다(user_id CASCADE). 신고/제재와 달리 계정이
+  사라진 뒤에도 남겨서 증거로 삼거나 이력을 보존해야 할 실익이 없는 개인 문의
+  기록이기 때문이다(이슈 #90 8절).
+- category는 general/sanction_appeal 두 가지. 관리자가 큐에서 빠르게 구분해
+  볼 수 있도록 하는 용도이며 별도 테이블로 분리하지 않는다.
+- status는 pending/answered. reports·user_sanctions와 마찬가지로 CHECK 제약
+  없이 애플리케이션 검증으로만 통제한다.
+- sanction_appeal 문의를 승인 처리하면 관리자가 `PATCH /api/admin/sanctions/:id`
+  (이슈 #90 7-4절, PR #99)를 함께 호출해 정지를 조기 해제한다. 이 연동은 PR #99가
+  develop에 머지된 뒤 별도로 붙인다 — 현재 이 브랜치는 문의 등록/조회/답변까지만
+  구현한다.
+
+```sql
+CREATE TABLE inquiries (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
+    category        VARCHAR(20) NOT NULL DEFAULT 'general',
+    content         VARCHAR(1000) NOT NULL,
+    admin_reply     VARCHAR(1000),
+    status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_inquiries_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_inquiries_status_created
+    ON inquiries (status, created_at, id);
+
+CREATE INDEX idx_inquiries_user_created
+    ON inquiries (user_id, created_at, id);
+```
+
 ## 검증·배포
 
 재현 방법과 응답 규칙: [리뷰 API 구현·검증 안내](../docs/BE/REVIEWS.md).
