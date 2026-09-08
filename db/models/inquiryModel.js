@@ -51,15 +51,21 @@ const getInquiries = async ({ status = null, page, limit }) => {
 
 // connection을 넘기면 그 트랜잭션 안에서 실행한다(제재 이의제기 승인 시 정지 해제와
 // 하나로 묶어야 할 때 사용할 수 있도록 — adminReportsController.actionReport와 동일 패턴).
+//
+// 재시도로 완전히 같은 내용을 다시 보내면 값이 안 바뀌어 MySQL이 affectedRows를 0으로
+// 보고한다(행을 못 찾은 것과 구분이 안 됨) — sanctionModel.liftSanction과 동일 패턴으로,
+// 먼저 조회해 값이 실제로 다를 때만 UPDATE해 재시도에도 멱등하게 동작하게 한다.
 const answerInquiry = async (id, adminReply, connection = pool) => {
-  const [result] = await connection.query(
-    "UPDATE inquiries SET admin_reply = ?, status = 'answered' WHERE id = ?",
-    [adminReply, id]
-  );
-  if (result.affectedRows === 0) {
-    return null;
+  const inquiry = await getInquiryById(id, connection);
+  if (!inquiry) return null;
+  if (inquiry.admin_reply !== adminReply || inquiry.status !== 'answered') {
+    await connection.query(
+      "UPDATE inquiries SET admin_reply = ?, status = 'answered' WHERE id = ?",
+      [adminReply, id]
+    );
+    return getInquiryById(id, connection);
   }
-  return getInquiryById(id, connection);
+  return inquiry;
 };
 
 module.exports = {

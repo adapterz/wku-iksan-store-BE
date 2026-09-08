@@ -1,10 +1,14 @@
 const request = require('supertest');
 const { createTestApp } = require('../helpers/testApp');
 
+jest.mock('../../../db/pool', () => ({ getConnection: jest.fn(), query: jest.fn() }));
 jest.mock('../../../db/models/userModel');
 jest.mock('../../../db/models/inquiryModel');
+jest.mock('../../../db/models/sanctionModel');
+const pool = require('../../../db/pool');
 const userModel = require('../../../db/models/userModel');
 const inquiryModel = require('../../../db/models/inquiryModel');
+const sanctionModel = require('../../../db/models/sanctionModel');
 const adminInquiriesRouter = require('../../../routes/admin/inquiries');
 
 const ADMIN_SESSION = { userId: 1 };
@@ -18,7 +22,13 @@ const inquiryRow = {
   admin_reply: null, status: 'pending', created_at: '2026-09-08T00:00:00Z'
 };
 
-beforeEach(() => jest.resetAllMocks());
+let connection;
+
+beforeEach(() => {
+  jest.resetAllMocks();
+  connection = { beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn(), query: jest.fn() };
+  pool.getConnection.mockResolvedValue(connection);
+});
 afterEach(() => jest.restoreAllMocks());
 
 describe('GET /api/admin/inquiries', () => {
@@ -111,5 +121,128 @@ describe('PATCH /api/admin/inquiries/:id', () => {
       inquiryId: 5, userId: 2, category: 'sanction_appeal', content: '이의제기합니다',
       adminReply: '정지를 해제했습니다', status: 'answered', createdAt: inquiryRow.created_at
     });
+    expect(pool.getConnection).not.toHaveBeenCalled();
+  });
+
+  describe('sanctionId를 함께 보내 정지 해제와 묶는 경우', () => {
+    test('sanctionId를 형식에 안 맞게 보내면 400 INVALID_SANCTION_ID', async () => {
+      mockAdminSession();
+      const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+      const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변', sanctionId: 'abc' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('INVALID_SANCTION_ID');
+      expect(inquiryModel.getInquiryById).not.toHaveBeenCalled();
+    });
+
+    test('sanction_appeal이 아닌 문의에 sanctionId를 보내면 400 SANCTION_ID_NOT_ALLOWED', async () => {
+      mockAdminSession();
+      inquiryModel.getInquiryById.mockResolvedValue({ ...inquiryRow, category: 'general' });
+      const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+      const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변', sanctionId: 42 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('SANCTION_ID_NOT_ALLOWED');
+      expect(pool.getConnection).not.toHaveBeenCalled();
+    });
+
+    test('정상 승인 시 같은 트랜잭션에서 정지 해제 후 답변 저장', async () => {
+      mockAdminSession();
+      inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+      sanctionModel.getSanctionById.mockResolvedValue({ id: 42, user_id: 2, type: 'suspension', status: 'active' });
+      sanctionModel.liftSanction.mockResolvedValue({ id: 42, status: 'lifted' });
+      inquiryModel.answerInquiry.mockResolvedValue({
+        ...inquiryRow, admin_reply: '정지를 해제했습니다', status: 'answered'
+      });
+      const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+      const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '정지를 해제했습니다', sanctionId: 42 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.code).toBe('ADMIN_INQUIRY_UPDATE_SUCCESS');
+      expect(sanctionModel.getSanctionById).toHaveBeenCalledWith(42, connection);
+      expect(sanctionModel.liftSanction).toHaveBeenCalledWith(42, connection);
+      expect(inquiryModel.answerInquiry).toHaveBeenCalledWith(5, '정지를 해제했습니다', connection);
+      expect(connection.commit).toHaveBeenCalledTimes(1);
+      expect(connection.rollback).not.toHaveBeenCalled();
+      expect(connection.release).toHaveBeenCalledTimes(1);
+    });
+
+    test('sanctionId가 존재하지 않으면 404 SANCTION_NOT_FOUND, rollback', async () => {
+      mockAdminSession();
+      inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+      sanctionModel.getSanctionById.mockResolvedValue(null);
+      const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+      const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변', sanctionId: 999 });
+
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('SANCTION_NOT_FOUND');
+      expect(sanctionModel.liftSanction).not.toHaveBeenCalled();
+      expect(inquiryModel.answerInquiry).not.toHaveBeenCalled();
+      expect(connection.rollback).toHaveBeenCalledTimes(1);
+      expect(connection.commit).not.toHaveBeenCalled();
+    });
+
+    test('sanctionId가 다른 유저 것이면 404 SANCTION_NOT_FOUND(존재 여부를 알려주지 않음)', async () => {
+      mockAdminSession();
+      inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+      sanctionModel.getSanctionById.mockResolvedValue({ id: 42, user_id: 999, status: 'active' });
+      const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+      const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변', sanctionId: 42 });
+
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('SANCTION_NOT_FOUND');
+      expect(sanctionModel.liftSanction).not.toHaveBeenCalled();
+      expect(connection.rollback).toHaveBeenCalledTimes(1);
+    });
+
+    test('sanctionId가 warning이면 400 SANCTION_NOT_SUSPENSION, rollback (해제해도 경고 제한에는 계속 걸림)', async () => {
+      mockAdminSession();
+      inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+      sanctionModel.getSanctionById.mockResolvedValue({ id: 42, user_id: 2, type: 'warning', status: 'active' });
+      const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+      const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변', sanctionId: 42 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('SANCTION_NOT_SUSPENSION');
+      expect(sanctionModel.liftSanction).not.toHaveBeenCalled();
+      expect(inquiryModel.answerInquiry).not.toHaveBeenCalled();
+      expect(connection.rollback).toHaveBeenCalledTimes(1);
+      expect(connection.commit).not.toHaveBeenCalled();
+    });
+
+    test('조회~처리 사이 문의가 사라지면(레이스) 정지 해제까지 롤백하고 404 INQUIRY_NOT_FOUND', async () => {
+      mockAdminSession();
+      inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+      sanctionModel.getSanctionById.mockResolvedValue({ id: 42, user_id: 2, type: 'suspension', status: 'active' });
+      sanctionModel.liftSanction.mockResolvedValue({ id: 42, status: 'lifted' });
+      inquiryModel.answerInquiry.mockResolvedValue(null);
+      const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+      const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변', sanctionId: 42 });
+
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('INQUIRY_NOT_FOUND');
+      // 정지 해제가 이미 커밋된 채로 응답만 실패해 보이는 상태를 막기 위해 롤백해야 한다.
+      expect(connection.rollback).toHaveBeenCalledTimes(1);
+      expect(connection.commit).not.toHaveBeenCalled();
+    });
+  });
+
+  test('sanctionId 없이 답변할 때도 조회~처리 사이 문의가 사라지면 404 INQUIRY_NOT_FOUND(500 아님)', async () => {
+    mockAdminSession();
+    inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+    inquiryModel.answerInquiry.mockResolvedValue(null);
+    const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변' });
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('INQUIRY_NOT_FOUND');
   });
 });

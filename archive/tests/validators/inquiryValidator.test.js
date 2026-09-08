@@ -100,7 +100,7 @@ describe('validateInquiryReplyInput', () => {
 
   test('앞뒤 공백을 제거한 값을 반환', () => {
     expect(validateInquiryReplyInput({ adminReply: '  확인 후 조치했습니다  ' })).toEqual({
-      value: { adminReply: '확인 후 조치했습니다' }
+      value: { adminReply: '확인 후 조치했습니다', sanctionId: null }
     });
   });
 
@@ -110,5 +110,21 @@ describe('validateInquiryReplyInput', () => {
 
   test.each([null, [], 'x', 1])('잘못된 body %p 거부', body => {
     expect(validateInquiryReplyInput(body).errorCode).toBe('INVALID_INQUIRY_BODY');
+  });
+
+  test('sanctionId 생략 시 null로 취급', () => {
+    expect(validateInquiryReplyInput({ adminReply: '답변' })).toEqual({
+      value: { adminReply: '답변', sanctionId: null }
+    });
+  });
+
+  test('sanctionId를 함께 보내면 정수로 반환', () => {
+    expect(validateInquiryReplyInput({ adminReply: '정지를 해제합니다', sanctionId: 42 })).toEqual({
+      value: { adminReply: '정지를 해제합니다', sanctionId: 42 }
+    });
+  });
+
+  test.each(['42', -1, 0, 1.5])('sanctionId가 양의 정수가 아니면 INVALID_SANCTION_ID (%p)', sanctionId => {
+    expect(validateInquiryReplyInput({ adminReply: '답변', sanctionId }).errorCode).toBe('INVALID_SANCTION_ID');
   });
 });

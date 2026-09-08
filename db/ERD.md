@@ -107,10 +107,11 @@ CREATE INDEX idx_reports_status_created
   볼 수 있도록 하는 용도이며 별도 테이블로 분리하지 않는다.
 - status는 pending/answered. reports·user_sanctions와 마찬가지로 CHECK 제약
   없이 애플리케이션 검증으로만 통제한다.
-- sanction_appeal 문의를 승인 처리하면 관리자가 `PATCH /api/admin/sanctions/:id`
-  (이슈 #90 7-4절, PR #99)를 함께 호출해 정지를 조기 해제한다. 이 연동은 PR #99가
-  develop에 머지된 뒤 별도로 붙인다 — 현재 이 브랜치는 문의 등록/조회/답변까지만
-  구현한다.
+- sanction_appeal 문의를 승인 처리할 때 `PATCH /api/admin/inquiries/:id` 본문에
+  `sanctionId`를 함께 보내면, 문의 답변 저장과 정지 해제(PR #99, 이슈 #90 7-4절)를
+  같은 트랜잭션으로 묶어 처리한다. inquiries 테이블에는 sanctionId를 저장하지
+  않는다 — 관리자가 이미 조회한 제재 이력에서 어떤 제재를 해제할지 매 요청마다
+  직접 지정한다(테이블 간 FK로 미리 못박아두지 않는 이유).
 
 ```sql
 CREATE TABLE inquiries (

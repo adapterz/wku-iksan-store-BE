@@ -64,9 +64,12 @@ function validateInquiryListQuery(query = {}, { mine = false } = {}) {
 }
 
 // PATCH /api/admin/inquiries/:id 본문 검증 — 답변 등록 시 상태는 자동으로 answered가 된다.
+// sanctionId는 sanction_appeal 문의를 승인해 정지도 함께 해제할 때만 보낸다(이슈 #90
+// 8-1절). 이 문의가 실제로 sanction_appeal인지, sanctionId가 이 문의의 유저 것인지는
+// 컨트롤러에서 문의/제재 행을 조회한 뒤에만 알 수 있어 여기서는 형식만 검증한다.
 function validateInquiryReplyInput(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) ||
-      Object.keys(body).some(key => key !== 'adminReply')) {
+      Object.keys(body).some(key => !['adminReply', 'sanctionId'].includes(key))) {
     return { errorCode: 'INVALID_INQUIRY_BODY' };
   }
   if (!Object.prototype.hasOwnProperty.call(body, 'adminReply')) {
@@ -82,7 +85,14 @@ function validateInquiryReplyInput(body) {
   if ([...trimmed].length > MAX_ADMIN_REPLY_LENGTH) {
     return { errorCode: 'ADMIN_REPLY_TOO_LONG' };
   }
-  return { value: { adminReply: trimmed } };
+
+  let sanctionId = null;
+  if (body.sanctionId !== undefined && body.sanctionId !== null) {
+    sanctionId = parsePositiveInteger(body.sanctionId);
+    if (sanctionId === null) return { errorCode: 'INVALID_SANCTION_ID' };
+  }
+
+  return { value: { adminReply: trimmed, sanctionId } };
 }
 
 module.exports = {
