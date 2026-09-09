@@ -128,13 +128,14 @@ CREATE INDEX idx_reports_status_created
     ON reports (status, created_at, id);
 
 CREATE TABLE inquiries (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id         BIGINT NOT NULL,
-    category        VARCHAR(20) NOT NULL DEFAULT 'general',
-    content         VARCHAR(1000) NOT NULL,
-    admin_reply     VARCHAR(1000),
-    status          VARCHAR(20) NOT NULL DEFAULT 'pending',
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id               BIGINT NOT NULL,
+    category              VARCHAR(20) NOT NULL DEFAULT 'general',
+    content               VARCHAR(1000) NOT NULL,
+    admin_reply           VARCHAR(1000),
+    resolved_sanction_id  BIGINT,
+    status                VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_inquiries_user
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

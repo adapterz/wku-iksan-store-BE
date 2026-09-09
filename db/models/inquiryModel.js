@@ -1,7 +1,7 @@
 const pool = require('../pool');
 
 const INQUIRY_SELECT = `
-  SELECT id, user_id, category, content, admin_reply, status, created_at
+  SELECT id, user_id, category, content, admin_reply, resolved_sanction_id, status, created_at
   FROM inquiries`;
 
 const getInquiryById = async (id, connection = pool) => {
@@ -61,16 +61,23 @@ const getInquiries = async ({ status = null, page, limit }) => {
 // connection을 넘기면 그 트랜잭션 안에서 실행한다(제재 이의제기 승인 시 정지 해제와
 // 하나로 묶어야 할 때 사용할 수 있도록 — adminReportsController.actionReport와 동일 패턴).
 //
+// resolvedSanctionId는 이 답변을 처리할 때 실제로 해제 대상으로 지정된 sanctionId다
+// (sanctionId 없이 처리한 답변/반려는 null). 답변 문구만으로 재시도 여부를 판단하면
+// 문구가 우연히 같고 sanctionId만 다른 요청까지 재시도로 오인할 수 있어, 재시도
+// 판정에는 이 값도 함께 비교한다(PR #100 리뷰 코멘트).
+//
 // 재시도로 완전히 같은 내용을 다시 보내면 값이 안 바뀌어 MySQL이 affectedRows를 0으로
 // 보고한다(행을 못 찾은 것과 구분이 안 됨) — sanctionModel.liftSanction과 동일 패턴으로,
 // 먼저 조회해 값이 실제로 다를 때만 UPDATE해 재시도에도 멱등하게 동작하게 한다.
-const answerInquiry = async (id, adminReply, connection = pool) => {
+const answerInquiry = async (id, adminReply, resolvedSanctionId = null, connection = pool) => {
   const inquiry = await getInquiryById(id, connection);
   if (!inquiry) return null;
-  if (inquiry.admin_reply !== adminReply || inquiry.status !== 'answered') {
+  if (inquiry.status !== 'answered' ||
+      inquiry.admin_reply !== adminReply ||
+      inquiry.resolved_sanction_id !== resolvedSanctionId) {
     await connection.query(
-      "UPDATE inquiries SET admin_reply = ?, status = 'answered' WHERE id = ?",
-      [adminReply, id]
+      "UPDATE inquiries SET admin_reply = ?, resolved_sanction_id = ?, status = 'answered' WHERE id = ?",
+      [adminReply, resolvedSanctionId, id]
     );
     return getInquiryById(id, connection);
   }

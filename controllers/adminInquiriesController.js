@@ -13,6 +13,7 @@ function mapInquiry(row) {
     category: row.category,
     content: row.content,
     adminReply: row.admin_reply,
+    resolvedSanctionId: row.resolved_sanction_id,
     status: row.status,
     createdAt: row.created_at
   };
@@ -55,13 +56,21 @@ async function processInquiryAnswer(inquiryId, adminReply, sanctionId, appealUse
       error.inquiryError = 'INQUIRY_NOT_FOUND';
       throw error;
     }
-    // 이미 다른 관리자가 답변을 등록한 뒤라면: 완전히 같은 답변으로 재시도한 것이면
-    // 멱등하게 통과시키고(아래 answerInquiry가 no-op으로 처리), 내용이 다른 결정이면
-    // 충돌로 막아 클라이언트가 최신 상태를 다시 조회하게 한다.
-    if (inquiry.status === 'answered' && inquiry.admin_reply !== adminReply) {
-      const error = new Error('INQUIRY_ALREADY_PROCESSED');
-      error.inquiryError = 'INQUIRY_ALREADY_PROCESSED';
-      throw error;
+    if (inquiry.status === 'answered') {
+      // 이미 다른 관리자가 답변을 등록한 뒤라면: 답변 문구와 처리 대상(sanctionId)이
+      // 완전히 같아야 같은 요청의 재시도로 본다. 답변 문구만 같고 sanctionId가 다르면
+      // (관리자가 다른 정지를 잘못 지정한 경우 등) 서로 다른 처리 요청인데, 문구만 보고
+      // 재시도로 오인해 통과시키면 이미 끝난 처리에 다른 정지 해제가 또 실행될 수 있다
+      // (PR #100 리뷰 코멘트).
+      if (inquiry.admin_reply !== adminReply || inquiry.resolved_sanction_id !== sanctionId) {
+        const error = new Error('INQUIRY_ALREADY_PROCESSED');
+        error.inquiryError = 'INQUIRY_ALREADY_PROCESSED';
+        throw error;
+      }
+      // 완전히 같은 처리의 재시도 — 정지 해제를 다시 실행하지 않고 기존 결과를 그대로
+      // 반환한다.
+      await connection.commit();
+      return inquiry;
     }
 
     if (sanctionId !== null) {
@@ -84,7 +93,7 @@ async function processInquiryAnswer(inquiryId, adminReply, sanctionId, appealUse
       await sanctionModel.liftSanction(sanctionId, connection);
     }
 
-    const updated = await inquiryModel.answerInquiry(inquiryId, adminReply, connection);
+    const updated = await inquiryModel.answerInquiry(inquiryId, adminReply, sanctionId, connection);
     await connection.commit();
     return updated;
   } catch (error) {

@@ -19,7 +19,7 @@ function mockAdminSession() {
 
 const inquiryRow = {
   id: 5, user_id: 2, category: 'sanction_appeal', content: '이의제기합니다',
-  admin_reply: null, status: 'pending', created_at: '2026-09-08T00:00:00Z'
+  admin_reply: null, resolved_sanction_id: null, status: 'pending', created_at: '2026-09-08T00:00:00Z'
 };
 
 let connection;
@@ -64,13 +64,35 @@ describe('GET /api/admin/inquiries', () => {
     expect(inquiryModel.getInquiries).toHaveBeenCalledWith({ status: 'pending', page: 1, limit: 10 });
     expect(res.body.data[0]).toEqual({
       inquiryId: 5, userId: 2, category: 'sanction_appeal', content: '이의제기합니다',
-      adminReply: null, status: 'pending', createdAt: inquiryRow.created_at
+      adminReply: null, resolvedSanctionId: null, status: 'pending', createdAt: inquiryRow.created_at
     });
     expect(res.body.meta).toEqual({ page: 1, limit: 10, totalCount: 1, totalPages: 1 });
+  });
+
+  test('page/limit 쿼리를 지정하면 그대로 모델에 전달', async () => {
+    mockAdminSession();
+    inquiryModel.getInquiries.mockResolvedValue({ rows: [], totalCount: 25 });
+    const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).get('/api/admin/inquiries?page=2&limit=20');
+
+    expect(res.status).toBe(200);
+    expect(inquiryModel.getInquiries).toHaveBeenCalledWith({ status: null, page: 2, limit: 20 });
+    expect(res.body.meta).toEqual({ page: 2, limit: 20, totalCount: 25, totalPages: 2 });
   });
 });
 
 describe('PATCH /api/admin/inquiries/:id', () => {
+  test('관리자가 아니면 403 FORBIDDEN_NOT_ADMIN', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, role: 'user' });
+    const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변' });
+
+    expect(res.status).toBe(403);
+    expect(inquiryModel.getInquiryById).not.toHaveBeenCalled();
+  });
+
   test('id가 유효하지 않으면 400 INVALID_INQUIRY_ID', async () => {
     mockAdminSession();
     const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
@@ -119,10 +141,11 @@ describe('PATCH /api/admin/inquiries/:id', () => {
     expect(res.body.code).toBe('ADMIN_INQUIRY_UPDATE_SUCCESS');
     // sanctionId가 없어도 동시 처리 방지를 위해 항상 락을 걸고 트랜잭션으로 처리한다.
     expect(inquiryModel.lockInquiryById).toHaveBeenCalledWith(5, connection);
-    expect(inquiryModel.answerInquiry).toHaveBeenCalledWith(5, '정지를 해제했습니다', connection);
+    // sanctionId를 생략하면 resolvedSanctionId는 null로 저장된다.
+    expect(inquiryModel.answerInquiry).toHaveBeenCalledWith(5, '정지를 해제했습니다', null, connection);
     expect(res.body.data).toEqual({
       inquiryId: 5, userId: 2, category: 'sanction_appeal', content: '이의제기합니다',
-      adminReply: '정지를 해제했습니다', status: 'answered', createdAt: inquiryRow.created_at
+      adminReply: '정지를 해제했습니다', resolvedSanctionId: null, status: 'answered', createdAt: inquiryRow.created_at
     });
     expect(connection.commit).toHaveBeenCalledTimes(1);
     expect(connection.release).toHaveBeenCalledTimes(1);
@@ -145,20 +168,83 @@ describe('PATCH /api/admin/inquiries/:id', () => {
     expect(connection.commit).not.toHaveBeenCalled();
   });
 
-  test('이미 같은 내용으로 답변된 뒤 재시도하면(멱등) 200으로 그대로 반환', async () => {
+  test('이미 같은 내용으로 답변된 뒤 재시도하면(멱등) 200으로 그대로 반환, 재처리는 실행 안 함', async () => {
     mockAdminSession();
-    const answered = { ...inquiryRow, admin_reply: '정지를 해제했습니다', status: 'answered' };
+    const answered = { ...inquiryRow, admin_reply: '정지를 해제했습니다', resolved_sanction_id: null, status: 'answered' };
     inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
     inquiryModel.lockInquiryById.mockResolvedValue(answered);
-    inquiryModel.answerInquiry.mockResolvedValue(answered);
     const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
 
     const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '정지를 해제했습니다' });
 
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('ADMIN_INQUIRY_UPDATE_SUCCESS');
+    expect(res.body.data.adminReply).toBe('정지를 해제했습니다');
+    // 완전히 같은 처리의 재시도이므로 정지 조회/해제·문의 UPDATE를 다시 실행하지 않는다.
+    expect(sanctionModel.getSanctionById).not.toHaveBeenCalled();
+    expect(sanctionModel.liftSanction).not.toHaveBeenCalled();
+    expect(inquiryModel.answerInquiry).not.toHaveBeenCalled();
     expect(connection.commit).toHaveBeenCalledTimes(1);
     expect(connection.rollback).not.toHaveBeenCalled();
+  });
+
+  test('같은 답변 문구여도 sanctionId가 다르면 409 INQUIRY_ALREADY_PROCESSED (다른 정지가 잘못 해제되는 것을 막음)', async () => {
+    mockAdminSession();
+    const answeredWithSanctionA = {
+      ...inquiryRow, admin_reply: '확인 후 해제했습니다', resolved_sanction_id: 42, status: 'answered'
+    };
+    inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+    inquiryModel.lockInquiryById.mockResolvedValue(answeredWithSanctionA);
+    const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+    // 문구는 정지 A를 해제했을 때와 완전히 동일하지만, 이번엔 다른 정지(99)를 지정했다.
+    const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '확인 후 해제했습니다', sanctionId: 99 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('INQUIRY_ALREADY_PROCESSED');
+    // sanctionId 99는 조회조차 되지 않아야 한다 — 잘못된 정지가 추가로 해제되면 안 된다.
+    expect(sanctionModel.getSanctionById).not.toHaveBeenCalled();
+    expect(sanctionModel.liftSanction).not.toHaveBeenCalled();
+    expect(inquiryModel.answerInquiry).not.toHaveBeenCalled();
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+  });
+
+  test('같은 sanctionId를 지정해도 답변 문구가 다르면 409 INQUIRY_ALREADY_PROCESSED (처리 결과 변경은 별도 절차로)', async () => {
+    mockAdminSession();
+    const answeredWithSanctionA = {
+      ...inquiryRow, admin_reply: '확인 후 해제했습니다', resolved_sanction_id: 42, status: 'answered'
+    };
+    inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+    inquiryModel.lockInquiryById.mockResolvedValue(answeredWithSanctionA);
+    const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+    // 같은 정지(42)를 가리키지만 답변 문구를 바꿔서 다시 보냄 — 사후 정정은 재시도가 아니라
+    // 별도의 명시적인 변경 절차로 다뤄야 하므로 통과시키지 않는다.
+    const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '문구를 정정합니다', sanctionId: 42 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('INQUIRY_ALREADY_PROCESSED');
+    expect(sanctionModel.getSanctionById).not.toHaveBeenCalled();
+    expect(inquiryModel.answerInquiry).not.toHaveBeenCalled();
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+  });
+
+  test('sanctionId 없이 처리된 문의에 나중에 sanctionId를 붙여 재요청하면 409 INQUIRY_ALREADY_PROCESSED', async () => {
+    mockAdminSession();
+    const answeredWithoutSanction = {
+      ...inquiryRow, admin_reply: '반려합니다', resolved_sanction_id: null, status: 'answered'
+    };
+    inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+    inquiryModel.lockInquiryById.mockResolvedValue(answeredWithoutSanction);
+    const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '반려합니다', sanctionId: 42 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('INQUIRY_ALREADY_PROCESSED');
+    expect(sanctionModel.liftSanction).not.toHaveBeenCalled();
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
   });
 
   describe('sanctionId를 함께 보내 정지 해제와 묶는 경우', () => {
@@ -202,7 +288,7 @@ describe('PATCH /api/admin/inquiries/:id', () => {
       expect(res.body.code).toBe('ADMIN_INQUIRY_UPDATE_SUCCESS');
       expect(sanctionModel.getSanctionById).toHaveBeenCalledWith(42, connection);
       expect(sanctionModel.liftSanction).toHaveBeenCalledWith(42, connection);
-      expect(inquiryModel.answerInquiry).toHaveBeenCalledWith(5, '정지를 해제했습니다', connection);
+      expect(inquiryModel.answerInquiry).toHaveBeenCalledWith(5, '정지를 해제했습니다', 42, connection);
       expect(connection.commit).toHaveBeenCalledTimes(1);
       expect(connection.rollback).not.toHaveBeenCalled();
       expect(connection.release).toHaveBeenCalledTimes(1);

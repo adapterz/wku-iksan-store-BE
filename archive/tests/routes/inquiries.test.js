@@ -35,6 +35,13 @@ describe('POST /api/inquiries', () => {
     expect(res.body.code).toBe('INVALID_INQUIRY_CATEGORY');
   });
 
+  test('content가 1000자를 초과하면 400 INQUIRY_CONTENT_TOO_LONG', async () => {
+    const res = await request(app()).post('/api/inquiries').send({ content: '가'.repeat(1001) });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INQUIRY_CONTENT_TOO_LONG');
+    expect(inquiryModel.createInquiry).not.toHaveBeenCalled();
+  });
+
   test('category 생략 시 general로 등록', async () => {
     inquiryModel.createInquiry.mockResolvedValue(inquiryRow);
 
@@ -90,5 +97,28 @@ describe('GET /api/inquiries/me', () => {
 
     expect(res.status).toBe(200);
     expect(inquiryModel.getMyInquiries).toHaveBeenCalledWith(1, { page: 1, limit: 10, status: null });
+  });
+
+  test('로그인한 본인 userId로만 조회 — 다른 유저 세션이면 그 유저 id로 호출', async () => {
+    inquiryModel.getMyInquiries.mockResolvedValue({ rows: [], totalCount: 0 });
+
+    await request(app(1)).get('/api/inquiries/me');
+    expect(inquiryModel.getMyInquiries).toHaveBeenLastCalledWith(1, { page: 1, limit: 10, status: null });
+
+    await request(app(99)).get('/api/inquiries/me');
+    expect(inquiryModel.getMyInquiries).toHaveBeenLastCalledWith(99, { page: 1, limit: 10, status: null });
+  });
+
+  test('관리자가 답변한 뒤에는 목록에 adminReply와 answered 상태가 반영됨', async () => {
+    const answeredRow = { ...inquiryRow, admin_reply: '확인 후 처리했습니다.', status: 'answered' };
+    inquiryModel.getMyInquiries.mockResolvedValue({ rows: [answeredRow], totalCount: 1 });
+
+    const res = await request(app()).get('/api/inquiries/me');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0]).toEqual({
+      inquiryId: 5, category: 'general', content: '배송이 안 와요',
+      adminReply: '확인 후 처리했습니다.', status: 'answered', createdAt: inquiryRow.created_at
+    });
   });
 });

@@ -10,6 +10,11 @@
 -- - user_id는 CASCADE다. reports.reporter_id/orders.user_id와 달리, 문의는 계정이
 --   삭제된 뒤에도 남겨서 증거로 삼거나 이력을 보존해야 할 이유가 없는 개인 문의
 --   기록이라 SET NULL로 보존할 실익이 없다.
+-- - resolved_sanction_id: 이 문의를 답변할 때 실제로 해제 대상으로 지정된
+--   sanctionId를 기록한다(FK 아님, sanctionId 없이 처리한 답변은 NULL). 답변
+--   문구만으로 "같은 요청의 재시도"를 판단하면, 문구가 우연히 같고 sanctionId만
+--   다른 요청(관리자가 다른 정지를 잘못 지정한 경우 등)까지 재시도로 오인해 엉뚱한
+--   정지가 추가로 해제될 수 있다 — 재시도 판정에는 답변 문구와 이 값을 함께 비교한다.
 --
 -- [선행 조건]
 -- - users 테이블이 존재해야 한다.
@@ -21,13 +26,14 @@
 --   SOURCE db/migrate_inquiries.sql;
 
 CREATE TABLE inquiries (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id         BIGINT NOT NULL,
-    category        VARCHAR(20) NOT NULL DEFAULT 'general',
-    content         VARCHAR(1000) NOT NULL,
-    admin_reply     VARCHAR(1000),
-    status          VARCHAR(20) NOT NULL DEFAULT 'pending',
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id               BIGINT NOT NULL,
+    category              VARCHAR(20) NOT NULL DEFAULT 'general',
+    content               VARCHAR(1000) NOT NULL,
+    admin_reply           VARCHAR(1000),
+    resolved_sanction_id  BIGINT,
+    status                VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_inquiries_user
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

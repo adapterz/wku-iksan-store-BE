@@ -109,19 +109,22 @@ CREATE INDEX idx_reports_status_created
   없이 애플리케이션 검증으로만 통제한다.
 - sanction_appeal 문의를 승인 처리할 때 `PATCH /api/admin/inquiries/:id` 본문에
   `sanctionId`를 함께 보내면, 문의 답변 저장과 정지 해제(PR #99, 이슈 #90 7-4절)를
-  같은 트랜잭션으로 묶어 처리한다. inquiries 테이블에는 sanctionId를 저장하지
-  않는다 — 관리자가 이미 조회한 제재 이력에서 어떤 제재를 해제할지 매 요청마다
-  직접 지정한다(테이블 간 FK로 미리 못박아두지 않는 이유).
+  같은 트랜잭션으로 묶어 처리한다. 처리 당시 지정된 sanctionId는 `resolved_sanction_id`에
+  기록한다(FK 아님, sanctionId 없이 처리한 답변은 NULL) — 답변 문구만으로 "같은
+  요청의 재시도"를 판단하면, 문구가 우연히 같고 sanctionId만 다른 요청까지 재시도로
+  오인해 엉뚱한 정지가 추가로 해제될 수 있어(PR #100 리뷰 코멘트), 재시도 판정에는
+  답변 문구와 이 값을 함께 비교한다.
 
 ```sql
 CREATE TABLE inquiries (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id         BIGINT NOT NULL,
-    category        VARCHAR(20) NOT NULL DEFAULT 'general',
-    content         VARCHAR(1000) NOT NULL,
-    admin_reply     VARCHAR(1000),
-    status          VARCHAR(20) NOT NULL DEFAULT 'pending',
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id               BIGINT NOT NULL,
+    category              VARCHAR(20) NOT NULL DEFAULT 'general',
+    content               VARCHAR(1000) NOT NULL,
+    admin_reply           VARCHAR(1000),
+    resolved_sanction_id  BIGINT,
+    status                VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_inquiries_user
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
