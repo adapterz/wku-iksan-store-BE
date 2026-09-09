@@ -9,6 +9,15 @@ const getInquiryById = async (id, connection = pool) => {
   return rows.length > 0 ? rows[0] : null;
 };
 
+// 트랜잭션 안에서 문의 행을 잠그고(FOR UPDATE) 최신 상태를 읽는다. 답변/승인 처리
+// 전에 반드시 이 함수로 잠근 뒤 status를 다시 확인해야, 동시에 들어온 다른 관리자의
+// 처리 요청이 순서 없이 뒤섞여 서로를 덮어쓰는 것을 막을 수 있다(sanctionModel의
+// FOR UPDATE 패턴과 동일).
+const lockInquiryById = async (id, connection) => {
+  const [rows] = await connection.query(`${INQUIRY_SELECT} WHERE id = ? FOR UPDATE`, [id]);
+  return rows.length > 0 ? rows[0] : null;
+};
+
 const createInquiry = async (userId, { category, content }) => {
   const [result] = await pool.query(
     `INSERT INTO inquiries (user_id, category, content) VALUES (?, ?, ?)`,
@@ -70,6 +79,7 @@ const answerInquiry = async (id, adminReply, connection = pool) => {
 
 module.exports = {
   getInquiryById,
+  lockInquiryById,
   createInquiry,
   getMyInquiries,
   getInquiries,

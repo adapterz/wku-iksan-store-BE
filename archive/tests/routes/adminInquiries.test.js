@@ -107,6 +107,7 @@ describe('PATCH /api/admin/inquiries/:id', () => {
   test('정상 답변 등록 시 200과 answered 상태', async () => {
     mockAdminSession();
     inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+    inquiryModel.lockInquiryById.mockResolvedValue(inquiryRow);
     inquiryModel.answerInquiry.mockResolvedValue({
       ...inquiryRow, admin_reply: '정지를 해제했습니다', status: 'answered'
     });
@@ -116,12 +117,48 @@ describe('PATCH /api/admin/inquiries/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('ADMIN_INQUIRY_UPDATE_SUCCESS');
-    expect(inquiryModel.answerInquiry).toHaveBeenCalledWith(5, '정지를 해제했습니다');
+    // sanctionId가 없어도 동시 처리 방지를 위해 항상 락을 걸고 트랜잭션으로 처리한다.
+    expect(inquiryModel.lockInquiryById).toHaveBeenCalledWith(5, connection);
+    expect(inquiryModel.answerInquiry).toHaveBeenCalledWith(5, '정지를 해제했습니다', connection);
     expect(res.body.data).toEqual({
       inquiryId: 5, userId: 2, category: 'sanction_appeal', content: '이의제기합니다',
       adminReply: '정지를 해제했습니다', status: 'answered', createdAt: inquiryRow.created_at
     });
-    expect(pool.getConnection).not.toHaveBeenCalled();
+    expect(connection.commit).toHaveBeenCalledTimes(1);
+    expect(connection.release).toHaveBeenCalledTimes(1);
+  });
+
+  test('이미 다른 관리자가 다른 내용으로 답변한 뒤 재요청하면 409 INQUIRY_ALREADY_PROCESSED', async () => {
+    mockAdminSession();
+    inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+    inquiryModel.lockInquiryById.mockResolvedValue({
+      ...inquiryRow, admin_reply: '이미 승인 처리했습니다', status: 'answered'
+    });
+    const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '반려합니다' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('INQUIRY_ALREADY_PROCESSED');
+    expect(inquiryModel.answerInquiry).not.toHaveBeenCalled();
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+  });
+
+  test('이미 같은 내용으로 답변된 뒤 재시도하면(멱등) 200으로 그대로 반환', async () => {
+    mockAdminSession();
+    const answered = { ...inquiryRow, admin_reply: '정지를 해제했습니다', status: 'answered' };
+    inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+    inquiryModel.lockInquiryById.mockResolvedValue(answered);
+    inquiryModel.answerInquiry.mockResolvedValue(answered);
+    const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '정지를 해제했습니다' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('ADMIN_INQUIRY_UPDATE_SUCCESS');
+    expect(connection.commit).toHaveBeenCalledTimes(1);
+    expect(connection.rollback).not.toHaveBeenCalled();
   });
 
   describe('sanctionId를 함께 보내 정지 해제와 묶는 경우', () => {
@@ -151,6 +188,7 @@ describe('PATCH /api/admin/inquiries/:id', () => {
     test('정상 승인 시 같은 트랜잭션에서 정지 해제 후 답변 저장', async () => {
       mockAdminSession();
       inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+      inquiryModel.lockInquiryById.mockResolvedValue(inquiryRow);
       sanctionModel.getSanctionById.mockResolvedValue({ id: 42, user_id: 2, type: 'suspension', status: 'active' });
       sanctionModel.liftSanction.mockResolvedValue({ id: 42, status: 'lifted' });
       inquiryModel.answerInquiry.mockResolvedValue({
@@ -173,6 +211,7 @@ describe('PATCH /api/admin/inquiries/:id', () => {
     test('sanctionId가 존재하지 않으면 404 SANCTION_NOT_FOUND, rollback', async () => {
       mockAdminSession();
       inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+      inquiryModel.lockInquiryById.mockResolvedValue(inquiryRow);
       sanctionModel.getSanctionById.mockResolvedValue(null);
       const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
 
@@ -189,6 +228,7 @@ describe('PATCH /api/admin/inquiries/:id', () => {
     test('sanctionId가 다른 유저 것이면 404 SANCTION_NOT_FOUND(존재 여부를 알려주지 않음)', async () => {
       mockAdminSession();
       inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+      inquiryModel.lockInquiryById.mockResolvedValue(inquiryRow);
       sanctionModel.getSanctionById.mockResolvedValue({ id: 42, user_id: 999, status: 'active' });
       const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
 
@@ -203,6 +243,7 @@ describe('PATCH /api/admin/inquiries/:id', () => {
     test('sanctionId가 warning이면 400 SANCTION_NOT_SUSPENSION, rollback (해제해도 경고 제한에는 계속 걸림)', async () => {
       mockAdminSession();
       inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
+      inquiryModel.lockInquiryById.mockResolvedValue(inquiryRow);
       sanctionModel.getSanctionById.mockResolvedValue({ id: 42, user_id: 2, type: 'warning', status: 'active' });
       const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
 
@@ -216,33 +257,33 @@ describe('PATCH /api/admin/inquiries/:id', () => {
       expect(connection.commit).not.toHaveBeenCalled();
     });
 
-    test('조회~처리 사이 문의가 사라지면(레이스) 정지 해제까지 롤백하고 404 INQUIRY_NOT_FOUND', async () => {
+    test('조회~잠금 사이 문의가 사라지면(레이스) 정지 해제를 시도하지 않고 404 INQUIRY_NOT_FOUND로 롤백', async () => {
       mockAdminSession();
       inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
-      sanctionModel.getSanctionById.mockResolvedValue({ id: 42, user_id: 2, type: 'suspension', status: 'active' });
-      sanctionModel.liftSanction.mockResolvedValue({ id: 42, status: 'lifted' });
-      inquiryModel.answerInquiry.mockResolvedValue(null);
+      inquiryModel.lockInquiryById.mockResolvedValue(null);
       const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
 
       const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변', sanctionId: 42 });
 
       expect(res.status).toBe(404);
       expect(res.body.code).toBe('INQUIRY_NOT_FOUND');
-      // 정지 해제가 이미 커밋된 채로 응답만 실패해 보이는 상태를 막기 위해 롤백해야 한다.
+      // 락 시점에 이미 사라진 게 확인되므로 정지 해제 자체를 시도하지 않는다.
+      expect(sanctionModel.getSanctionById).not.toHaveBeenCalled();
       expect(connection.rollback).toHaveBeenCalledTimes(1);
       expect(connection.commit).not.toHaveBeenCalled();
     });
   });
 
-  test('sanctionId 없이 답변할 때도 조회~처리 사이 문의가 사라지면 404 INQUIRY_NOT_FOUND(500 아님)', async () => {
+  test('sanctionId 없이 답변할 때도 조회~잠금 사이 문의가 사라지면 404 INQUIRY_NOT_FOUND(500 아님)', async () => {
     mockAdminSession();
     inquiryModel.getInquiryById.mockResolvedValue(inquiryRow);
-    inquiryModel.answerInquiry.mockResolvedValue(null);
+    inquiryModel.lockInquiryById.mockResolvedValue(null);
     const app = createTestApp('/api/admin/inquiries', adminInquiriesRouter, { session: ADMIN_SESSION });
 
     const res = await request(app).patch('/api/admin/inquiries/5').send({ adminReply: '답변' });
 
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('INQUIRY_NOT_FOUND');
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
   });
 });

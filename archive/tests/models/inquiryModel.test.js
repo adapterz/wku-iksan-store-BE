@@ -4,6 +4,23 @@ const model = require('../../../db/models/inquiryModel');
 
 beforeEach(() => jest.resetAllMocks());
 
+describe('lockInquiryById', () => {
+  test('FOR UPDATE로 잠근 뒤 행을 반환', async () => {
+    const connection = { query: jest.fn().mockResolvedValue([[{ id: 5, status: 'pending' }]]) };
+
+    const result = await model.lockInquiryById(5, connection);
+
+    expect(result).toEqual({ id: 5, status: 'pending' });
+    expect(connection.query.mock.calls[0][0]).toContain('FOR UPDATE');
+  });
+
+  test('없는 문의는 null 반환', async () => {
+    const connection = { query: jest.fn().mockResolvedValue([[]]) };
+
+    expect(await model.lockInquiryById(999, connection)).toBeNull();
+  });
+});
+
 describe('answerInquiry', () => {
   const pending = { id: 5, admin_reply: null, status: 'pending' };
   const answered = { id: 5, admin_reply: '확인했습니다', status: 'answered' };

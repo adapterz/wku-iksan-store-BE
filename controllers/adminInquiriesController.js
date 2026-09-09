@@ -40,41 +40,51 @@ async function getInquiries(req, res) {
   }
 }
 
-// 정지 해제와 문의 답변 저장을 하나의 트랜잭션으로 묶는다. 따로 커밋하면 정지는
-// 풀렸는데 답변 저장이 실패해 문의가 계속 미답변으로 남는 상태가 될 수 있다
-// (adminReportsController.actionReport와 동일 패턴).
-async function liftSanctionAndAnswerInquiry(inquiryId, adminReply, sanctionId, appealUserId) {
+// 문의 행을 잠근 뒤(FOR UPDATE) 최신 상태를 다시 확인하고, 필요하면 정지 해제까지
+// 같은 트랜잭션으로 묶어 처리한다. 잠금만 걸고 상태를 재확인하지 않으면 순서만
+// 뒤로 밀릴 뿐, 뒤에 도착한 관리자의 요청이 앞서 처리된 결과를 그대로 덮어써버린다
+// (같은 이의제기 문의를 두 관리자가 동시에 승인/반려하는 상황 — PR #100 리뷰 코멘트).
+async function processInquiryAnswer(inquiryId, adminReply, sanctionId, appealUserId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
-    const sanction = await sanctionModel.getSanctionById(sanctionId, connection);
-    // 존재하지 않는 sanctionId와 다른 유저의 sanctionId를 같은 에러로 처리해, 응답만으로
-    // 다른 유저의 제재 존재 여부를 알아낼 수 없게 한다.
-    if (!sanction || sanction.user_id !== appealUserId) {
-      const error = new Error('SANCTION_NOT_FOUND');
-      error.inquiryError = 'SANCTION_NOT_FOUND';
-      throw error;
-    }
-    // warning은 status만 lifted로 바뀔 뿐 sanctionModel.countWarnings가 status를 보지
-    // 않아 "경고 1회 제한"에는 계속 걸린다 — 이 API로 해제해도 실질 효과가 없다. 이슈
-    // #90 8-1/7-4절도 정지(suspension) 해제만 다루므로 여기서 미리 막는다.
-    if (sanction.type !== 'suspension') {
-      const error = new Error('SANCTION_NOT_SUSPENSION');
-      error.inquiryError = 'SANCTION_NOT_SUSPENSION';
-      throw error;
-    }
-    await sanctionModel.liftSanction(sanctionId, connection);
-
-    const updated = await inquiryModel.answerInquiry(inquiryId, adminReply, connection);
-    // updated가 null이면(조회~처리 사이 문의가 사라진 극단적 레이스) 커밋하지 않고
-    // 던져서 위 정지 해제까지 함께 롤백한다 — 안 그러면 정지는 풀렸는데 500이 나가는
-    // 상태가 된다.
-    if (!updated) {
+    const inquiry = await inquiryModel.lockInquiryById(inquiryId, connection);
+    if (!inquiry) {
       const error = new Error('INQUIRY_NOT_FOUND');
       error.inquiryError = 'INQUIRY_NOT_FOUND';
       throw error;
     }
+    // 이미 다른 관리자가 답변을 등록한 뒤라면: 완전히 같은 답변으로 재시도한 것이면
+    // 멱등하게 통과시키고(아래 answerInquiry가 no-op으로 처리), 내용이 다른 결정이면
+    // 충돌로 막아 클라이언트가 최신 상태를 다시 조회하게 한다.
+    if (inquiry.status === 'answered' && inquiry.admin_reply !== adminReply) {
+      const error = new Error('INQUIRY_ALREADY_PROCESSED');
+      error.inquiryError = 'INQUIRY_ALREADY_PROCESSED';
+      throw error;
+    }
+
+    if (sanctionId !== null) {
+      const sanction = await sanctionModel.getSanctionById(sanctionId, connection);
+      // 존재하지 않는 sanctionId와 다른 유저의 sanctionId를 같은 에러로 처리해, 응답만으로
+      // 다른 유저의 제재 존재 여부를 알아낼 수 없게 한다.
+      if (!sanction || sanction.user_id !== appealUserId) {
+        const error = new Error('SANCTION_NOT_FOUND');
+        error.inquiryError = 'SANCTION_NOT_FOUND';
+        throw error;
+      }
+      // warning은 status만 lifted로 바뀔 뿐 sanctionModel.countWarnings가 status를 보지
+      // 않아 "경고 1회 제한"에는 계속 걸린다 — 이 API로 해제해도 실질 효과가 없다. 이슈
+      // #90 8-1/7-4절도 정지(suspension) 해제만 다루므로 여기서 미리 막는다.
+      if (sanction.type !== 'suspension') {
+        const error = new Error('SANCTION_NOT_SUSPENSION');
+        error.inquiryError = 'SANCTION_NOT_SUSPENSION';
+        throw error;
+      }
+      await sanctionModel.liftSanction(sanctionId, connection);
+    }
+
+    const updated = await inquiryModel.answerInquiry(inquiryId, adminReply, connection);
     await connection.commit();
     return updated;
   } catch (error) {
@@ -105,11 +115,7 @@ async function answerInquiry(req, res) {
       return sendError(res, ERROR.SANCTION_ID_NOT_ALLOWED);
     }
 
-    const updated = sanctionId !== null
-      ? await liftSanctionAndAnswerInquiry(inquiryId, adminReply, sanctionId, inquiry.user_id)
-      : await inquiryModel.answerInquiry(inquiryId, adminReply);
-    if (!updated) return sendError(res, ERROR.INQUIRY_NOT_FOUND);
-
+    const updated = await processInquiryAnswer(inquiryId, adminReply, sanctionId, inquiry.user_id);
     return sendSuccess(res, { ...SUCCESS.ADMIN_INQUIRY_UPDATE_SUCCESS, data: mapInquiry(updated) });
   } catch (error) {
     if (error.inquiryError && ERROR[error.inquiryError]) return sendError(res, ERROR[error.inquiryError]);
