@@ -71,6 +71,7 @@ CREATE TABLE gifts (
     barcode         VARCHAR(50) NOT NULL,
     status          VARCHAR(20) NOT NULL,
     used_at         DATETIME,
+    notified_at     DATETIME NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_gifts_order_id UNIQUE (order_id),

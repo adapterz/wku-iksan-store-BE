@@ -1,6 +1,38 @@
 const giftModel = require('../db/models/giftModel');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
+const { validateGiftNotificationInput } = require('../validators/giftNotificationValidator');
+
+async function getUnnotifiedGifts(req, res) {
+  try {
+    const giftIds = await giftModel.getUnnotifiedGiftIds(req.session.userId);
+    return sendSuccess(res, {
+      ...SUCCESS.GIFT_UNNOTIFIED_SUCCESS,
+      data: { count: giftIds.length, giftIds }
+    });
+  } catch (error) {
+    console.error('Failed to fetch gift notifications:', error);
+    return sendError(res);
+  }
+}
+
+async function notifyGifts(req, res) {
+  const validation = validateGiftNotificationInput(req.body);
+  if (validation.errorCode) return sendError(res, ERROR[validation.errorCode]);
+  try {
+    const giftIds = validation.value;
+    const accepted = await giftModel.notifyGifts(req.session.userId, giftIds);
+    if (!accepted) return sendError(res, ERROR.GIFT_NOTIFICATION_TARGET_NOT_FOUND);
+    // 신규 갱신 건수가 아닌 확인 완료된 요청 대상 수: 동일 재시도에도 같은 응답.
+    return sendSuccess(res, {
+      ...SUCCESS.GIFT_NOTIFY_SUCCESS,
+      data: { count: giftIds.length, giftIds }
+    });
+  } catch (error) {
+    console.error('Failed to acknowledge gift notifications:', error);
+    return sendError(res);
+  }
+}
 
 function reviewFields(gift, userId) {
   return {
@@ -123,6 +155,8 @@ async function useGift(req, res) {
 }
 
 module.exports = {
+  getUnnotifiedGifts,
+  notifyGifts,
   getGifts,
   getGiftDetail,
   useGift
