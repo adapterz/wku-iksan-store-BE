@@ -4,9 +4,11 @@ const { createTestApp } = require('../helpers/testApp');
 jest.mock('../../../db/models/userModel');
 jest.mock('../../../db/models/dashboardModel');
 jest.mock('../../../db/models/reportModel');
+jest.mock('../../../db/models/inquiryModel');
 const userModel = require('../../../db/models/userModel');
 const dashboardModel = require('../../../db/models/dashboardModel');
 const reportModel = require('../../../db/models/reportModel');
+const inquiryModel = require('../../../db/models/inquiryModel');
 const adminDashboardRouter = require('../../../routes/admin/dashboard');
 
 const ADMIN_SESSION = { userId: 1 };
@@ -39,6 +41,7 @@ describe('GET /api/admin/dashboard', () => {
     dashboardModel.getProductStats.mockResolvedValue(productStats);
     dashboardModel.countActiveSuspensions.mockResolvedValue(7);
     reportModel.getReports.mockResolvedValue({ rows: [], totalCount: 5 });
+    inquiryModel.getInquiries.mockResolvedValue({ rows: [], totalCount: 2 });
     const app = createTestApp('/api/admin/dashboard', adminDashboardRouter, { session: ADMIN_SESSION });
 
     const res = await request(app).get('/api/admin/dashboard');
@@ -46,8 +49,10 @@ describe('GET /api/admin/dashboard', () => {
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('ADMIN_DASHBOARD_SUCCESS');
     expect(reportModel.getReports).toHaveBeenCalledWith({ status: 'pending', page: 1, limit: 1 });
+    // 관리자가 대시보드만 보고도 처리 대기 중인 이의제기 문의가 있음을 알 수 있어야 한다.
+    expect(inquiryModel.getInquiries).toHaveBeenCalledWith({ status: 'pending', page: 1, limit: 1 });
     expect(res.body.data).toEqual({
-      pendingActions: { reportCount: 5, activeSuspensionCount: 7 },
+      pendingActions: { reportCount: 5, inquiryCount: 2, activeSuspensionCount: 7 },
       products: productStats
     });
   });
@@ -57,6 +62,7 @@ describe('GET /api/admin/dashboard', () => {
     dashboardModel.getProductStats.mockRejectedValue(new Error('DB down'));
     dashboardModel.countActiveSuspensions.mockResolvedValue(0);
     reportModel.getReports.mockResolvedValue({ rows: [], totalCount: 0 });
+    inquiryModel.getInquiries.mockResolvedValue({ rows: [], totalCount: 0 });
     const app = createTestApp('/api/admin/dashboard', adminDashboardRouter, { session: ADMIN_SESSION });
 
     const res = await request(app).get('/api/admin/dashboard');

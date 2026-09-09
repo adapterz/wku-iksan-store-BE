@@ -1,5 +1,6 @@
 const dashboardModel = require('../db/models/dashboardModel');
 const reportModel = require('../db/models/reportModel');
+const inquiryModel = require('../db/models/inquiryModel');
 const { SUCCESS } = require('../constants/responseCodes');
 const { sendSuccess, sendError } = require('../routes/api');
 
@@ -7,15 +8,15 @@ const { sendSuccess, sendError } = require('../routes/api');
 // (pendingActions)과 "전체 현황"(products)을 나눠서 보여준다. 상세 목록이 필요하면
 // 각 기능의 기존 API(GET /api/admin/reports, GET /api/admin/inquiries)로 이동한다.
 //
-// TODO(#90 5-1절): pendingActions에 문의 대기 건수(inquiryCount)도 넣어야 한다.
-// PR #100(feature/inquiries)이 develop에 아직 머지되지 않아 db/models/inquiryModel.js가
-// 없으므로, PR #100 머지 후 inquiryModel.getInquiries({status:'pending', page:1, limit:1})
-// 결과의 totalCount를 reportCount와 같은 방식으로 추가한다.
+// 문의 대기 건수(inquiryCount)가 없으면, 관리자가 대시보드만 보고 하루를 시작할 때
+// 새로 들어온 이의제기 문의를 놓칠 수 있다(실제로 정지 이의제기 문의를 등록해도
+// 대시보드에는 아무 신호가 없는 것을 확인 후 반영).
 async function getDashboard(req, res) {
   try {
-    const [products, pendingReports, activeSuspensionCount] = await Promise.all([
+    const [products, pendingReports, pendingInquiries, activeSuspensionCount] = await Promise.all([
       dashboardModel.getProductStats(),
       reportModel.getReports({ status: 'pending', page: 1, limit: 1 }),
+      inquiryModel.getInquiries({ status: 'pending', page: 1, limit: 1 }),
       dashboardModel.countActiveSuspensions()
     ]);
 
@@ -24,6 +25,7 @@ async function getDashboard(req, res) {
       data: {
         pendingActions: {
           reportCount: pendingReports.totalCount,
+          inquiryCount: pendingInquiries.totalCount,
           activeSuspensionCount
         },
         products
