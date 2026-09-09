@@ -1,0 +1,94 @@
+const pool = require('../pool');
+
+const INQUIRY_SELECT = `
+  SELECT id, user_id, category, content, admin_reply, resolved_sanction_id, status, created_at
+  FROM inquiries`;
+
+const getInquiryById = async (id, connection = pool) => {
+  const [rows] = await connection.query(`${INQUIRY_SELECT} WHERE id = ?`, [id]);
+  return rows.length > 0 ? rows[0] : null;
+};
+
+// 트랜잭션 안에서 문의 행을 잠그고(FOR UPDATE) 최신 상태를 읽는다. 답변/승인 처리
+// 전에 반드시 이 함수로 잠근 뒤 status를 다시 확인해야, 동시에 들어온 다른 관리자의
+// 처리 요청이 순서 없이 뒤섞여 서로를 덮어쓰는 것을 막을 수 있다(sanctionModel의
+// FOR UPDATE 패턴과 동일).
+const lockInquiryById = async (id, connection) => {
+  const [rows] = await connection.query(`${INQUIRY_SELECT} WHERE id = ? FOR UPDATE`, [id]);
+  return rows.length > 0 ? rows[0] : null;
+};
+
+const createInquiry = async (userId, { category, content }) => {
+  const [result] = await pool.query(
+    `INSERT INTO inquiries (user_id, category, content) VALUES (?, ?, ?)`,
+    [userId, category, content]
+  );
+  return getInquiryById(result.insertId);
+};
+
+// 내 문의 목록 — 최신순.
+const getMyInquiries = async (userId, { page, limit }) => {
+  const [totals] = await pool.query(
+    'SELECT COUNT(*) AS total FROM inquiries WHERE user_id = ?', [userId]
+  );
+  const [rows] = await pool.query(
+    `${INQUIRY_SELECT} WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
+    [userId, limit, (page - 1) * limit]
+  );
+  return { rows, totalCount: Number(totals[0].total) };
+};
+
+// 관리자 문의 큐 — 오래된 문의부터 처리하도록 접수 순서로 정렬한다.
+const getInquiries = async ({ status = null, page, limit }) => {
+  const conditions = [];
+  const params = [];
+
+  if (status !== null) {
+    conditions.push('status = ?');
+    params.push(status);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [totals] = await pool.query(`SELECT COUNT(*) AS total FROM inquiries ${whereClause}`, params);
+  const [rows] = await pool.query(
+    `${INQUIRY_SELECT} ${whereClause} ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`,
+    [...params, limit, (page - 1) * limit]
+  );
+  return { rows, totalCount: Number(totals[0].total) };
+};
+
+// connection을 넘기면 그 트랜잭션 안에서 실행한다(제재 이의제기 승인 시 정지 해제와
+// 하나로 묶어야 할 때 사용할 수 있도록 — adminReportsController.actionReport와 동일 패턴).
+//
+// resolvedSanctionId는 이 답변을 처리할 때 실제로 해제 대상으로 지정된 sanctionId다
+// (sanctionId 없이 처리한 답변/반려는 null). 답변 문구만으로 재시도 여부를 판단하면
+// 문구가 우연히 같고 sanctionId만 다른 요청까지 재시도로 오인할 수 있어, 재시도
+// 판정에는 이 값도 함께 비교한다(PR #100 리뷰 코멘트).
+//
+// 재시도로 완전히 같은 내용을 다시 보내면 값이 안 바뀌어 MySQL이 affectedRows를 0으로
+// 보고한다(행을 못 찾은 것과 구분이 안 됨) — sanctionModel.liftSanction과 동일 패턴으로,
+// 먼저 조회해 값이 실제로 다를 때만 UPDATE해 재시도에도 멱등하게 동작하게 한다.
+const answerInquiry = async (id, adminReply, resolvedSanctionId = null, connection = pool) => {
+  const inquiry = await getInquiryById(id, connection);
+  if (!inquiry) return null;
+  if (inquiry.status !== 'answered' ||
+      inquiry.admin_reply !== adminReply ||
+      inquiry.resolved_sanction_id !== resolvedSanctionId) {
+    await connection.query(
+      "UPDATE inquiries SET admin_reply = ?, resolved_sanction_id = ?, status = 'answered' WHERE id = ?",
+      [adminReply, resolvedSanctionId, id]
+    );
+    return getInquiryById(id, connection);
+  }
+  return inquiry;
+};
+
+module.exports = {
+  getInquiryById,
+  lockInquiryById,
+  createInquiry,
+  getMyInquiries,
+  getInquiries,
+  answerInquiry
+};
