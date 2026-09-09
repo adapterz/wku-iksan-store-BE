@@ -97,6 +97,46 @@ CREATE INDEX idx_reports_status_created
     ON reports (status, created_at, id);
 ```
 
+## 문의하기 관계
+
+- users 1 : inquiries N.
+- 문의는 계정 삭제 시 함께 삭제한다(user_id CASCADE). 신고/제재와 달리 계정이
+  사라진 뒤에도 남겨서 증거로 삼거나 이력을 보존해야 할 실익이 없는 개인 문의
+  기록이기 때문이다(이슈 #90 8절).
+- category는 general/sanction_appeal 두 가지. 관리자가 큐에서 빠르게 구분해
+  볼 수 있도록 하는 용도이며 별도 테이블로 분리하지 않는다.
+- status는 pending/answered. reports·user_sanctions와 마찬가지로 CHECK 제약
+  없이 애플리케이션 검증으로만 통제한다.
+- sanction_appeal 문의를 승인 처리할 때 `PATCH /api/admin/inquiries/:id` 본문에
+  `sanctionId`를 함께 보내면, 문의 답변 저장과 정지 해제(PR #99, 이슈 #90 7-4절)를
+  같은 트랜잭션으로 묶어 처리한다. 처리 당시 지정된 sanctionId는 `resolved_sanction_id`에
+  기록한다(FK 아님, sanctionId 없이 처리한 답변은 NULL) — 답변 문구만으로 "같은
+  요청의 재시도"를 판단하면, 문구가 우연히 같고 sanctionId만 다른 요청까지 재시도로
+  오인해 엉뚱한 정지가 추가로 해제될 수 있어(PR #100 리뷰 코멘트), 재시도 판정에는
+  답변 문구와 이 값을 함께 비교한다.
+
+```sql
+CREATE TABLE inquiries (
+    id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id               BIGINT NOT NULL,
+    category              VARCHAR(20) NOT NULL DEFAULT 'general',
+    content               VARCHAR(1000) NOT NULL,
+    admin_reply           VARCHAR(1000),
+    resolved_sanction_id  BIGINT,
+    status                VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_inquiries_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_inquiries_status_created
+    ON inquiries (status, created_at, id);
+
+CREATE INDEX idx_inquiries_user_created
+    ON inquiries (user_id, created_at, id);
+```
+
 ## 회원 제재 관계
 
 - users(제재 대상) 1 : user_sanctions N, users(관리자) 1 : user_sanctions N(issued_by).

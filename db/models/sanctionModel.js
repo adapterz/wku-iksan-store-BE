@@ -80,15 +80,17 @@ const getUserSanctions = async (userId, { page, limit }) => {
   return { rows, totalCount: Number(totals[0].total) };
 };
 
-const liftSanction = async (id) => {
-  const sanction = await getSanctionById(id);
+// runner에 connection을 넘기면 그 트랜잭션 안에서 실행한다(제재 이의제기 문의 승인 시
+// 문의 답변 저장과 하나로 묶어야 할 때 사용 — adminReportsController.actionReport와 동일 패턴).
+const liftSanction = async (id, runner = pool) => {
+  const sanction = await getSanctionById(id, runner);
   if (!sanction) return null;
   // 이미 lifted인 걸 다시 lifted로 UPDATE하면 값이 안 바뀌어 MySQL이 affectedRows를
   // 0으로 보고한다(행을 못 찾은 것과 구분이 안 됨) — 재시도/중복 클릭에도 멱등하게
   // 동작하도록 값이 실제로 바뀔 때만 UPDATE한다(reviewModel.updateReviewStatus와 동일 패턴).
   if (sanction.status !== 'lifted') {
-    await pool.query("UPDATE user_sanctions SET status = 'lifted' WHERE id = ?", [id]);
-    return getSanctionById(id);
+    await runner.query("UPDATE user_sanctions SET status = 'lifted' WHERE id = ?", [id]);
+    return getSanctionById(id, runner);
   }
   return sanction;
 };
