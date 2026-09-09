@@ -17,6 +17,21 @@
 선물의 발신자·수신자는 orders를 경유하며 users에 대한 직접 FK가 없습니다.
 주문·선물은 회원 탈퇴 후에도 유지하고 orders의 발신자·수신자 닉네임 스냅샷으로 이력을 표시합니다.
 
+## 선물 도착 알림 상태 (이슈 #101)
+
+기존 관계와 FK는 유지하고 `gifts`에 아래 컬럼만 추가합니다.
+
+| 컬럼 | 자료형 / 기본값 | 의미 |
+| --- | --- | --- |
+| notified_at | DATETIME NULL / NULL | 도착 안내 확인 시각. NULL이면 아직 안내를 확인하지 않음 |
+
+- `gifts.status`/`used_at`(교환권 사용) 및 개별 선물 열람 여부와는 별개입니다.
+- 기존 데이터는 최초 적용 시 `created_at`으로 초기화하여 알림에서 제외합니다. 실제 확인 시각을 의미하지 않습니다.
+- 신규 선물 INSERT는 기존처럼 이 컬럼을 생략하며 기본값 NULL로 생성됩니다.
+- 알림 대상은 orders 기준 본인 수신·타인에게 받은 선물·결제 완료이며, 발신자 계정 존재 여부는 검사하지 않습니다.
+- 마이그레이션: [migrate_gift_notifications.sql](migrate_gift_notifications.sql). 운영 실행은 별도이며 백필은 재실행하지 않습니다.
+- API와 검증 방법: [선물 도착 알림](../docs/BE/GIFT_NOTIFICATIONS.md).
+
 ## 리뷰 관계
 
 - products 1 : reviews N, gifts 1 : reviews 0..1.
