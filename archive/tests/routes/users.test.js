@@ -5,12 +5,7 @@ jest.mock('../../../db/pool', () => ({ getConnection: jest.fn(), query: jest.fn(
 jest.mock('../../../db/models/userModel');
 jest.mock('../../../db/models/giftModel');
 jest.mock('../../../db/models/sanctionModel');
-jest.mock('../../../db/redisClient', () => ({
-  get: jest.fn().mockResolvedValue(null),
-  set: jest.fn().mockResolvedValue('OK'),
-  keys: jest.fn().mockResolvedValue([]),
-  del: jest.fn().mockResolvedValue(0)
-}));
+jest.mock('../../../db/redisClient');
 jest.mock('bcrypt');
 const pool = require('../../../db/pool');
 const userModel = require('../../../db/models/userModel');

@@ -3,6 +3,7 @@ const { createTestApp } = require('../helpers/testApp');
 jest.mock('../../../db/models/reviewModel');
 jest.mock('../../../db/models/productModel');
 jest.mock('../../../db/models/sanctionModel');
+jest.mock('../../../db/redisClient');
 const model = require('../../../db/models/reviewModel');
 const products = require('../../../db/models/productModel');
 const sanctions = require('../../../db/models/sanctionModel');

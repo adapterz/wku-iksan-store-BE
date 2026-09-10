@@ -4,7 +4,13 @@ const { createTestApp } = require('../helpers/testApp');
 jest.mock('../../../db/models/userModel');
 jest.mock('../../../db/models/productModel');
 jest.mock('../../../db/models/categoryModel');
-jest.mock('../../../controllers/productsController');
+// 팩토리 없이 mock하면 Jest가 형태 파악을 위해 원본 모듈을 실행하면서
+// productsController.js가 불러오는 db/redisClient의 new Redis()까지 실행된다.
+// adminProductsController.js가 실제로 쓰는 두 함수만 명시적으로 mock해 이를 막는다.
+jest.mock('../../../controllers/productsController', () => ({
+  resetRankingCache: jest.fn(),
+  invalidateProductListCache: jest.fn().mockResolvedValue(undefined)
+}));
 const userModel = require('../../../db/models/userModel');
 const productModel = require('../../../db/models/productModel');
 const categoryModel = require('../../../db/models/categoryModel');

@@ -3,6 +3,7 @@ const { createTestApp } = require('../helpers/testApp');
 jest.mock('../../../db/pool', () => ({ query: jest.fn(), getConnection: jest.fn() }));
 jest.mock('../../../db/models/reviewModel');
 jest.mock('../../../db/models/productModel');
+jest.mock('../../../db/redisClient');
 const pool = require('../../../db/pool');
 const reviews = require('../../../db/models/reviewModel');
 const products = require('../../../db/models/productModel');
