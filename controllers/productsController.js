@@ -1,4 +1,5 @@
 const productModel = require('../db/models/productModel');
+const redis = require('../db/redisClient');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { validateProductListQuery } = require('../validators/productValidator');
@@ -7,6 +8,13 @@ const { parsePositiveInteger } = require('../validators/commonValidator');
 const RANKING_CACHE_TTL_MS = 5 * 60 * 1000;
 let rankingCache = null;
 let rankingRequestPromise = null;
+
+const PRODUCT_LIST_CACHE_TTL_SECONDS = 5 * 60;
+
+// 검색어·카테고리·브랜드 조합마다 결과가 다르므로, 조합 전체를 캐시 키에 반영한다.
+function buildProductListCacheKey({ keyword, categoryId, brand }) {
+  return `products:list:keyword=${keyword ?? ''}:categoryId=${categoryId ?? ''}:brand=${brand ?? ''}`;
+}
 
 function mapRankingProducts(rows) {
   return rows.map((row, index) => ({
@@ -64,6 +72,22 @@ async function getProducts(req, res) {
       return sendError(res, ERROR[validation.errorCode]);
     }
 
+    const cacheKey = buildProductListCacheKey(validation.value);
+
+    // Redis 장애 시에도 서비스는 계속 동작해야 하므로, 캐시 조회 실패는
+    // 에러를 던지지 않고 DB 조회 경로로 자연스럽게 넘어가게 한다.
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return sendSuccess(res, {
+          ...SUCCESS.PRODUCT_LIST_SUCCESS,
+          data: JSON.parse(cached)
+        });
+      }
+    } catch (cacheError) {
+      console.error('Redis 조회 실패, DB로 폴백:', cacheError.message);
+    }
+
     const rows = await productModel.getAllProducts(validation.value);
 
     const products = rows.map(row => ({
@@ -77,6 +101,12 @@ async function getProducts(req, res) {
       wishlistCount: row.wishlist_count
     }));
 
+    try {
+      await redis.set(cacheKey, JSON.stringify(products), 'EX', PRODUCT_LIST_CACHE_TTL_SECONDS);
+    } catch (cacheError) {
+      console.error('Redis 저장 실패:', cacheError.message);
+    }
+
     return sendSuccess(res, {
       ...SUCCESS.PRODUCT_LIST_SUCCESS,
       data: products
@@ -84,6 +114,19 @@ async function getProducts(req, res) {
   } catch (error) {
     console.error('Database query error (GET /api/products):', error);
     return sendError(res);
+  }
+}
+
+// 상품 생성/수정/상태변경 후 목록 캐시를 무효화한다.
+// 조합별로 키가 다르므로(위 buildProductListCacheKey) 패턴 삭제로 한 번에 정리한다.
+async function invalidateProductListCache() {
+  try {
+    const keys = await redis.keys('products:list:*');
+    if (keys.length > 0) {
+      await redis.del(...keys);
+    }
+  } catch (error) {
+    console.error('상품 목록 캐시 무효화 실패:', error.message);
   }
 }
 
@@ -153,5 +196,6 @@ module.exports = {
   getProducts,
   getProductRanking,
   getProductDetail,
-  resetRankingCache
+  resetRankingCache,
+  invalidateProductListCache
 };
