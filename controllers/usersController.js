@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const pool = require('../db/pool');
 const userModel = require('../db/models/userModel');
 const giftModel = require('../db/models/giftModel');
 const sanctionModel = require('../db/models/sanctionModel');
@@ -184,6 +185,41 @@ async function updatePassword(req, res) {
   }
 }
 
+// "활성 정지 확인 → 계정 삭제" 사이에 새 정지가 끼어드는 경합을 막기 위해, 유저 행을
+// 잠그고(FOR UPDATE) 재확인한 뒤 삭제까지 같은 트랜잭션에서 처리한다. sanctionModel.
+// createSanction도 정지/경고 등록 전에 동일하게 유저 행을 먼저 잠그므로, 두 트랜잭션이
+// 같은 유저 행 잠금을 두고 경쟁하면서 순서대로 처리된다 — 한쪽이 정지를 부여하면 다른
+// 쪽은 그 커밋 이후에야 재확인하게 되어 회피할 수 없다. 활성 정지가 있으면 커밋할 것이
+// 없으므로 롤백만 하고 삭제 여부를 false로 반환한다.
+async function deleteUserIfNoActiveSanction(userId) {
+  const connection = await pool.getConnection();
+  let started = false;
+  try {
+    await connection.beginTransaction();
+    started = true;
+    await connection.query('SELECT id FROM users WHERE id = ? FOR UPDATE', [userId]);
+
+    const activeSuspension = await sanctionModel.getActiveSuspension(userId, connection);
+    if (activeSuspension) {
+      await connection.rollback();
+      return { deleted: false };
+    }
+
+    await userModel.deleteUser(userId, connection);
+    await connection.commit();
+    return { deleted: true };
+  } catch (error) {
+    if (started) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('Account delete rollback failed:', { code: rollbackError.code });
+      }
+    }
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 // DELETE /api/users/me — 계정 하드 삭제.
 // orders/wishlists의 FK ON DELETE 정책(SET NULL/CASCADE)이 연관 데이터를 정리하고,
 // orders에는 삭제 시점의 발신자/수신자 닉네임 스냅샷이 남아있어 주문 이력은 보존된다.
@@ -221,12 +257,10 @@ async function deleteAccount(req, res) {
       return sendError(res, ERROR.ACCOUNT_HAS_UNUSED_GIFTS);
     }
 
-    const activeSuspension = await sanctionModel.getActiveSuspension(userId);
-    if (activeSuspension) {
+    const { deleted } = await deleteUserIfNoActiveSanction(userId);
+    if (!deleted) {
       return sendError(res, ERROR.ACCOUNT_HAS_ACTIVE_SANCTION);
     }
-
-    await userModel.deleteUser(userId);
 
     // 계정 삭제는 이미 끝났으므로, 서버 세션 삭제 실패가 계정 삭제 실패로 보이지 않게 한다.
     try {
