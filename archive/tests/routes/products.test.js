@@ -2,6 +2,7 @@ const request = require('supertest');
 const { createTestApp } = require('../helpers/testApp');
 
 jest.mock('../../../db/models/productModel');
+jest.mock('../../../db/redisClient');
 const productModel = require('../../../db/models/productModel');
 const productsRouter = require('../../../routes/products');
 const productsController = require('../../../controllers/productsController');

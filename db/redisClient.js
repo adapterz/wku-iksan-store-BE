@@ -7,6 +7,7 @@ require('dotenv').config();
 const redis = new Redis({
   host: process.env.REDIS_HOST || 'localhost',
   port: process.env.REDIS_PORT || 6379,
+  password: process.env.REDIS_PASSWORD || undefined,
   maxRetriesPerRequest: 1,
   // 기본 재연결 로직은 실패해도 계속 백그라운드에서 재시도하며 타이머를 붙잡고 있어서,
   // Redis가 아예 없는 환경(테스트 등)에서 Node 프로세스가 안 끝나는 문제가 생긴다.
