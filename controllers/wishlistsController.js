@@ -1,5 +1,8 @@
 const wishlistModel = require('../db/models/wishlistModel');
 const productModel = require('../db/models/productModel');
+// 상품 목록 API의 wishlistCount는 wishlists 테이블에 대한 실시간 COUNT 집계를 캐싱한 값이라,
+// 찜 추가/삭제 직후 무효화하지 않으면 캐시 TTL(5분) 동안 변경 전 카운트가 계속 노출된다.
+const { invalidateProductListCache } = require('./productsController');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { parsePositiveInteger } = require('../validators/commonValidator');
@@ -25,6 +28,7 @@ async function createWishlist(req, res) {
     }
 
     const wishlist = await wishlistModel.createWishlist(userId, normalizedProductId);
+    await invalidateProductListCache();
 
     return sendSuccess(res, {
       ...SUCCESS.WISHLIST_CREATE_SUCCESS,
@@ -57,6 +61,7 @@ async function removeWishlist(req, res) {
     }
 
     await wishlistModel.deleteWishlist(userId, productId);
+    await invalidateProductListCache();
 
     return sendSuccess(res, {
       ...SUCCESS.WISHLIST_REMOVE_SUCCESS,

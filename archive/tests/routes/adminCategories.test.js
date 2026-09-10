@@ -3,6 +3,7 @@ const { createTestApp } = require('../helpers/testApp');
 
 jest.mock('../../../db/models/userModel');
 jest.mock('../../../db/models/categoryModel');
+jest.mock('../../../db/redisClient');
 const userModel = require('../../../db/models/userModel');
 const categoryModel = require('../../../db/models/categoryModel');
 const adminCategoriesRouter = require('../../../routes/admin/categories');

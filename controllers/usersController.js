@@ -3,6 +3,10 @@ const pool = require('../db/pool');
 const userModel = require('../db/models/userModel');
 const giftModel = require('../db/models/giftModel');
 const sanctionModel = require('../db/models/sanctionModel');
+// 계정 삭제 시 wishlists.user_id의 ON DELETE CASCADE로 해당 유저의 찜이 DB 레벨에서
+// 자동 삭제되는데, 이 경로는 wishlistsController를 거치지 않아 상품 목록 캐시의
+// wishlistCount가 갱신되지 않는다. 그래서 여기서도 별도로 무효화해야 한다.
+const { invalidateProductListCache } = require('./productsController');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { SESSION_COOKIE_NAME, getSessionCookieOptions } = require('../constants/session');
@@ -261,6 +265,7 @@ async function deleteAccount(req, res) {
     if (!deleted) {
       return sendError(res, ERROR.ACCOUNT_HAS_ACTIVE_SANCTION);
     }
+    await invalidateProductListCache();
 
     // 계정 삭제는 이미 끝났으므로, 서버 세션 삭제 실패가 계정 삭제 실패로 보이지 않게 한다.
     try {
