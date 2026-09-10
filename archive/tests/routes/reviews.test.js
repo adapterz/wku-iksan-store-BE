@@ -2,8 +2,10 @@ const request = require('supertest');
 const { createTestApp } = require('../helpers/testApp');
 jest.mock('../../../db/models/reviewModel');
 jest.mock('../../../db/models/productModel');
+jest.mock('../../../db/models/sanctionModel');
 const model = require('../../../db/models/reviewModel');
 const products = require('../../../db/models/productModel');
+const sanctions = require('../../../db/models/sanctionModel');
 const reviewsRouter = require('../../../routes/reviews');
 const productsRouter = require('../../../routes/products');
 const row = {
@@ -17,6 +19,7 @@ const productApp = (userId = 1) => createTestApp('/api/products', productsRouter
 
 beforeEach(() => {
   jest.resetAllMocks();
+  sanctions.getActiveSuspension.mockResolvedValue(null);
   products.getProductById.mockResolvedValue({ id: 3 });
 });
 afterEach(() => jest.restoreAllMocks());

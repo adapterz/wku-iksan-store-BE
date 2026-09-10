@@ -57,6 +57,8 @@ async function main() {
     const reviewsSection = (reviewsEnd === -1 ? schema.slice(reviewsStart) : schema.slice(reviewsStart, reviewsEnd)).trim();
     await runSql(schema.slice(0, reviewsStart));
     await runSql(migration);
+    // 리뷰 작성의 제재 조회 및 계정 삭제 연동에 필요한 후속 테이블도 준비한다.
+    if (reviewsEnd !== -1) await runSql(schema.slice(reviewsEnd));
     check(reviewsSection === migration.replace(/^--.*$/gm, '').trim(), 'Fresh schema and migration must match');
 
     pool = require('../db/pool');
@@ -82,7 +84,7 @@ async function main() {
       checks += 2;
       return logged.body.data.userId;
     };
-    await signup(sender, 'sender@example.test', '발신자');
+    const senderId = await signup(sender, 'sender@example.test', '발신자');
     const receiverId = await signup(receiver, 'receiver@example.test', '작성당시');
     await signup(stranger, 'stranger@example.test', '다른회원');
     await connection.query("INSERT INTO categories (name) VALUES ('검증분류')");
@@ -162,6 +164,43 @@ async function main() {
     check((await receiver.get('/api/gifts/' + gifts[3])).body.data.canReview === false, 'unpaid detail cannot review');
     check((await receiver.post('/api/reviews').send({ ...body, giftId: gifts[3] })).status === 403, 'unpaid creation refused');
     await connection.query("UPDATE orders o JOIN gifts g ON g.order_id = o.id SET o.payment_status = 'paid' WHERE g.id = ?", [gifts[3]]);
+
+    // 실제 제재 SQL + 리뷰 라우터: 경고/정지/자연 만료/조기 해제와 조회·삭제 유지.
+    const sanctions = require('../db/models/sanctionModel');
+    await sanctions.createSanction(receiverId, senderId, { type: 'warning', reason: '로컬 경고', endsAt: null });
+    const fourthBody = { ...body, giftId: gifts[3] };
+    const fourth = await receiver.post('/api/reviews').send(fourthBody);
+    check(fourth.status === 201, 'warning permits create');
+    const fourthId = fourth.body.data.reviewId;
+    check((await receiver.patch('/api/reviews/' + fourthId).send({ rating: 4 })).status === 200, 'warning permits edit');
+    const suspension = await sanctions.createSanction(receiverId, senderId,
+      { type: 'suspension', reason: '로컬 정지', endsAt: new Date(Date.now() + 3600000) });
+    check((await receiver.patch('/api/reviews/' + fourthId).send({ content: '차단되어야 함' })).body.code === 'SUSPENDED_FROM_REVIEWS', 'suspension blocks edit');
+    const [[unchanged]] = await connection.query('SELECT content FROM reviews WHERE id = ?', [fourthId]);
+    check(unchanged.content === fourthBody.content, 'blocked edit preserves content');
+    check((await receiver.get('/api/reviews/' + fourthId)).status === 200, 'suspended owner reads detail');
+    check((await receiver.get('/api/reviews/me')).status === 200, 'suspended owner reads list');
+    check((await receiver.get('/api/products/' + productId + '/reviews')).status === 200, 'suspended public read');
+    check((await stranger.delete('/api/reviews/' + fourthId)).status === 403, 'suspension does not waive ownership');
+    check((await receiver.delete('/api/reviews/' + fourthId)).status === 200, 'suspended owner deletes');
+    const blocked = await receiver.post('/api/reviews').send(fourthBody);
+    check(blocked.status === 403 && blocked.body.code === 'SUSPENDED_FROM_REVIEWS', 'suspension blocks recreation after delete');
+    const [[notCreated]] = await connection.query('SELECT COUNT(*) AS total FROM reviews WHERE gift_id = ?', [gifts[3]]);
+    check(notCreated.total === 0, 'blocked creation writes no row');
+    await connection.query('UPDATE user_sanctions SET ends_at = ? WHERE id = ?', [new Date(Date.now() - 1000), suspension.id]);
+    const afterExpiry = await receiver.post('/api/reviews').send(fourthBody);
+    check(afterExpiry.status === 201, 'natural expiry permits create without status change');
+    const afterExpiryId = afterExpiry.body.data.reviewId;
+    check((await receiver.patch('/api/reviews/' + afterExpiryId).send({ rating: 2 })).status === 200, 'natural expiry permits edit');
+    const nextSuspension = await sanctions.createSanction(receiverId, senderId,
+      { type: 'suspension', reason: '추가 정지', endsAt: new Date(Date.now() + 3600000) });
+    check((await receiver.patch('/api/reviews/' + afterExpiryId).send({ rating: 1 })).status === 403, 'remaining active suspension blocks edit');
+    await sanctions.liftSanction(nextSuspension.id);
+    check((await receiver.patch('/api/reviews/' + afterExpiryId).send({ rating: 1 })).status === 200, 'early lift permits edit');
+    await receiver.delete('/api/reviews/' + afterExpiryId);
+    const afterLift = await receiver.post('/api/reviews').send(fourthBody);
+    check(afterLift.status === 201, 'early lift permits create');
+    check((await receiver.delete('/api/reviews/' + afterLift.body.data.reviewId)).status === 200, 'restore original fixture count');
 
     await receiver.patch('/api/users/me/nickname').send({ nickname: '변경이후' });
     const snapshot = await request(app).get('/api/products/' + productId + '/reviews');
