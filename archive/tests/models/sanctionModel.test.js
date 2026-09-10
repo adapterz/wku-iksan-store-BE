@@ -49,17 +49,46 @@ test('countWarnings은 해당 유저의 warning 개수를 반환', async () => {
   expect(pool.query.mock.calls[0][1]).toEqual([5]);
 });
 
-test('정지 등록은 트랜잭션 없이 바로 INSERT 후 생성된 행을 반환', async () => {
+test('정지 등록도 유저 행을 잠그고 트랜잭션 안에서 처리 (탈퇴와의 경합 방지)', async () => {
   const row = { id: 11, user_id: 5, type: 'suspension', reason: '사유', issued_by: 1, ends_at: null, status: 'active' };
-  pool.query
-    .mockResolvedValueOnce([{ insertId: 11 }])
-    .mockResolvedValueOnce([[row]]);
+  connection.query
+    .mockResolvedValueOnce([[{ id: 5 }]])       // SELECT ... FOR UPDATE
+    .mockResolvedValueOnce([{ insertId: 11 }])  // INSERT
+    .mockResolvedValueOnce([[row]]);            // getSanctionById
 
   const result = await model.createSanction(5, 1, { type: 'suspension', reason: '사유', endsAt: null });
 
   expect(result).toEqual(row);
-  expect(pool.query.mock.calls[0][1]).toEqual([5, 'suspension', '사유', 1, null]);
-  expect(pool.getConnection).not.toHaveBeenCalled();
+  expect(connection.query.mock.calls[0][0]).toContain('FOR UPDATE');
+  expect(connection.query.mock.calls[1][1]).toEqual([5, 'suspension', '사유', 1, null]);
+  expect(connection.commit).toHaveBeenCalledTimes(1);
+  expect(connection.release).toHaveBeenCalledTimes(1);
+  expect(pool.query).not.toHaveBeenCalled();
+});
+
+describe('getActiveSuspension', () => {
+  test('제재 이력이 없으면 null', async () => {
+    pool.query.mockResolvedValueOnce([[]]);
+    expect(await model.getActiveSuspension(5)).toBeNull();
+    expect(pool.query.mock.calls[0][0]).toContain("type = 'suspension'");
+    expect(pool.query.mock.calls[0][0]).toContain("status = 'active'");
+  });
+
+  test('만료되지 않은 활성 정지가 있으면 그 행을 반환', async () => {
+    const future = new Date(Date.now() + 1000 * 60 * 60);
+    const row = { id: 1, user_id: 5, type: 'suspension', status: 'active', ends_at: future };
+    pool.query.mockResolvedValueOnce([[row]]);
+
+    expect(await model.getActiveSuspension(5)).toEqual(row);
+  });
+
+  test('ends_at이 이미 지났으면 status가 active여도 null (자연 만료, SQL NOW() 대신 Node 시계로 판단)', async () => {
+    const past = new Date(Date.now() - 1000 * 60 * 60);
+    const row = { id: 1, user_id: 5, type: 'suspension', status: 'active', ends_at: past };
+    pool.query.mockResolvedValueOnce([[row]]);
+
+    expect(await model.getActiveSuspension(5)).toBeNull();
+  });
 });
 
 describe('경고 등록 (동시 요청 방지)', () => {

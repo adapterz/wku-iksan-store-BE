@@ -1,6 +1,8 @@
 const bcrypt = require('bcrypt');
+const pool = require('../db/pool');
 const userModel = require('../db/models/userModel');
 const giftModel = require('../db/models/giftModel');
+const sanctionModel = require('../db/models/sanctionModel');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { SESSION_COOKIE_NAME, getSessionCookieOptions } = require('../constants/session');
@@ -183,11 +185,53 @@ async function updatePassword(req, res) {
   }
 }
 
+// "활성 정지 확인 → 계정 삭제" 사이에 새 정지가 끼어드는 경합을 막기 위해, 유저 행을
+// 잠그고(FOR UPDATE) 재확인한 뒤 삭제까지 같은 트랜잭션에서 처리한다. sanctionModel.
+// createSanction도 정지/경고 등록 전에 동일하게 유저 행을 먼저 잠그므로, 두 트랜잭션이
+// 같은 유저 행 잠금을 두고 경쟁하면서 순서대로 처리된다 — 한쪽이 정지를 부여하면 다른
+// 쪽은 그 커밋 이후에야 재확인하게 되어 회피할 수 없다. 활성 정지가 있으면 커밋할 것이
+// 없으므로 롤백만 하고 삭제 여부를 false로 반환한다.
+async function deleteUserIfNoActiveSanction(userId) {
+  const connection = await pool.getConnection();
+  let started = false;
+  try {
+    await connection.beginTransaction();
+    started = true;
+    await connection.query('SELECT id FROM users WHERE id = ? FOR UPDATE', [userId]);
+
+    const activeSuspension = await sanctionModel.getActiveSuspension(userId, connection);
+    if (activeSuspension) {
+      await connection.rollback();
+      return { deleted: false };
+    }
+
+    await userModel.deleteUser(userId, connection);
+    await connection.commit();
+    return { deleted: true };
+  } catch (error) {
+    if (started) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('Account delete rollback failed:', { code: rollbackError.code });
+      }
+    }
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 // DELETE /api/users/me — 계정 하드 삭제.
 // orders/wishlists의 FK ON DELETE 정책(SET NULL/CASCADE)이 연관 데이터를 정리하고,
 // orders에는 삭제 시점의 발신자/수신자 닉네임 스냅샷이 남아있어 주문 이력은 보존된다.
 // 다만 삭제되면 계정으로 로그인할 방법이 없어져 미사용 선물은 영구히 사용할 수 없게
 // 되므로, 본인이 수신자인 미사용 선물이 남아있으면 삭제 자체를 거부한다.
+//
+// user_sanctions.user_id가 ON DELETE CASCADE라 계정을 삭제하면 제재 기록도 함께
+// 사라진다. 그대로 두면 정지당한 유저가 탈퇴 후 같은 이메일로 재가입해 제재 이력 없이
+// 다시 활동할 수 있어(신고당한 리뷰를 작성자가 직접 삭제해 증거를 없애는 것과 동일한
+// 회피 패턴), 활성 정지가 있으면 삭제 자체를 거부한다(이슈 #90 7-5절). 경고만 있고
+// 활성 정지가 없는 경우는 막지 않는다 — 경고는 아무 기능도 제한하지 않으므로, 경고
+// 이력만으로 탈퇴 자체를 막으면 배보다 배꼽이 커진다.
 async function deleteAccount(req, res) {
   try {
     const userId = req.session.userId;
@@ -213,7 +257,10 @@ async function deleteAccount(req, res) {
       return sendError(res, ERROR.ACCOUNT_HAS_UNUSED_GIFTS);
     }
 
-    await userModel.deleteUser(userId);
+    const { deleted } = await deleteUserIfNoActiveSanction(userId);
+    if (!deleted) {
+      return sendError(res, ERROR.ACCOUNT_HAS_ACTIVE_SANCTION);
+    }
 
     // 계정 삭제는 이미 끝났으므로, 서버 세션 삭제 실패가 계정 삭제 실패로 보이지 않게 한다.
     try {

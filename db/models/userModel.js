@@ -46,9 +46,10 @@ const updateUserRole = async (id, role) => {
 };
 
 // orders/wishlists의 FK ON DELETE 정책(SET NULL/CASCADE)이 연쇄 처리를 담당하므로
-// 여기서는 users 행만 삭제한다.
-const deleteUser = async (id) => {
-  await pool.query('DELETE FROM users WHERE id = ?', [id]);
+// 여기서는 users 행만 삭제한다. runner로 트랜잭션 커넥션을 받으면 그 안에서 실행된다
+// (usersController.deleteAccount — 유저 행을 잠근 채로 삭제까지 같은 트랜잭션에서 처리).
+const deleteUser = async (id, runner = pool) => {
+  await runner.query('DELETE FROM users WHERE id = ?', [id]);
 };
 
 module.exports = {
