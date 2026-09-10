@@ -9,10 +9,10 @@
 | 메서드 | 경로 | 권한 / 반환 |
 | --- | --- | --- |
 | GET | /api/products/:id/reviews | 공개 visible 목록과 전체 통계; data.summary, data.reviews, meta |
-| POST | /api/reviews | 실제 수신자 + paid + used; 201 생성된 리뷰 |
+| POST | /api/reviews | 활성 정지 없음 + 실제 수신자 + paid + used; 201 생성된 리뷰 |
 | GET | /api/reviews/me | 본인 목록(숨김 포함); data 배열, meta |
 | GET | /api/reviews/:id | 본인 수정용 단건 |
-| PATCH | /api/reviews/:id | 본인, rating/content 중 전달한 값만 수정 |
+| PATCH | /api/reviews/:id | 활성 정지 없음 + 본인, rating/content 중 전달한 값만 수정 |
 | DELETE | /api/reviews/:id | 본인, 행 삭제; data.reviewId |
 
 본문 예: `{ "giftId": 7, "rating": 5, "content": "후기" }`.
@@ -40,6 +40,25 @@
 - 리뷰 화면은 작성·수정·삭제 후 리뷰 목록·통계·선물 상태를 다시 조회해야 합니다.
 - FE는 사용자 본문을 textContent로 출력하고 상품 캐시에 리뷰 목록을 넣지 않아야 합니다.
 
+## 정지 회원의 작성·수정 제한
+
+관리자 설계 [#90 합의](https://github.com/adapterz/wku-iksan-store-BE/issues/90#issuecomment-5601424412)에 따라
+POST `/api/reviews`, PATCH `/api/reviews/:id`에 공통 정지 확인 함수를 적용합니다.
+
+| 회원 상태 | 작성·수정 | 조회·본인 삭제 |
+| --- | --- | --- |
+| 활성 정지, 종료 시각 이전 | 403 SUSPENDED_FROM_REVIEWS | 기존 권한에 따라 허용 |
+| 경고만 있음 / 정지 없음 / 정지 만료·조기 해제 | 기존 자격·권한에 따라 허용 | 기존 권한에 따라 허용 |
+
+- 인증·입력 검증 → 정지 사전 확인 → 기존 리뷰 모델 순서입니다. 잘못된 입력은 기존 400을 유지합니다.
+- 기존 `getActiveSuspension`을 재사용합니다. SQL `NOW()` 비교를 추가하지 않고 Node 시계로 만료를 판단하며, 종료 시각에 도달하면 제한하지 않습니다.
+- 내부 오류 표시는 `error.sanctionError`, 외부 응답은 `403 SUSPENDED_FROM_REVIEWS`입니다. 정지 사유·내부 SQL은 응답에 노출하지 않습니다.
+- 정지 조회 실패 시 `500 INTERNAL_SERVER_ERROR`이며 리뷰 생성·수정은 실행하지 않습니다.
+- 컨트롤러 사전 확인이므로 확인 직후 정지가 부여된 진행 중 요청은 완료될 수 있습니다. 제재 생성과 리뷰 쓰기의 원자성은 보장하지 않습니다(합의된 범위).
+- FE는 이 403에서 로그인으로 이동하거나 입력을 초기화하지 말고, 작성·수정 제한 안내와 함께 입력을 유지해야 합니다. FE 구현은 이번 BE 변경에 포함하지 않습니다.
+- `canReview`는 기존 선물의 작성 자격 표시를 유지하며 정지 상태까지 반영하지 않습니다. 최종 작성·수정 API 응답으로 제한을 안내해야 합니다.
+- 새 API·컬럼·마이그레이션은 없습니다. 운영 배포 전 기존 `db/migrate_user_sanctions.sql` 적용 여부를 확인해야 합니다.
+
 ## 선물 응답
 
 목록·상세의 기존 필드 유지 + productId, reviewId, canReview 추가.
@@ -55,7 +74,7 @@ npm test -- --runInBand
 ```
 
 검증 대상: 입력 경계값, 공개/개인 응답, 캐시, 소유권, 모델 SQL 바인딩,
-트랜잭션 해제·rollback, 선물 응답 회귀.
+트랜잭션 해제·rollback, 선물 응답 회귀, 정지 사전 확인·종료 시각 경계·조회 장애 시 쓰기 차단.
 단위 테스트의 DB 모킹만으로 실제 FK·CHECK 동작을 확인했다고 보지 않습니다.
 
 ## 실제 로컬 MySQL 통합 검증
@@ -77,6 +96,8 @@ DB_HOST는 localhost/127.0.0.1/::1만 허용하며 기존 DB_NAME은 무시합�
 실제 Express 라우터·세션 쿠키·MySQL로 가입 → 로그인 → 주문 → 사용 →
 동시 리뷰 작성 → 조회/수정/삭제/재작성 → 발신자·수신자 탈퇴 → 기록 보존을 확인합니다.
 CHECK·UNIQUE·FK 위반, 숨김 처리와 집계, 개인정보 비노출도 검증합니다.
+실제 제재 등록 후 작성·수정 차단과 DB 미변경, 경고·자연 만료·조기 해제 후 허용,
+정지 중 조회·본인 삭제 유지도 함께 검증합니다.
 
 ## 운영 반영 주의
 
