@@ -5,21 +5,24 @@ const model = require('../../../db/models/dashboardModel');
 beforeEach(() => jest.resetAllMocks());
 
 describe('getProductStats', () => {
-  test('활성 상품 개수, 브랜드별 집계, 숨김 상품 개수를 함께 반환', async () => {
+  test('활성 상품 개수, 브랜드별 집계, 숨김·단종 상품 개수를 함께 반환', async () => {
     pool.query
       .mockResolvedValueOnce([[{ total: 42 }]])
       .mockResolvedValueOnce([[{ brand: '나이키', count: 12 }, { brand: '아디다스', count: 8 }]])
-      .mockResolvedValueOnce([[{ total: 3 }]]);
+      .mockResolvedValueOnce([[{ total: 3 }]])
+      .mockResolvedValueOnce([[{ total: 2 }]]);
 
     const result = await model.getProductStats();
 
     expect(result).toEqual({
       totalCount: 42,
       byBrand: [{ brand: '나이키', count: 12 }, { brand: '아디다스', count: 8 }],
-      hiddenCount: 3
+      hiddenCount: 3,
+      discontinuedCount: 2
     });
     expect(pool.query.mock.calls[0][0]).toContain("status = 'active'");
     expect(pool.query.mock.calls[2][0]).toContain("status = 'hidden'");
+    expect(pool.query.mock.calls[3][0]).toContain("status = 'discontinued'");
   });
 });
 

@@ -20,7 +20,8 @@ function mockAdminSession() {
 const productStats = {
   totalCount: 42,
   byBrand: [{ brand: '나이키', count: 12 }],
-  hiddenCount: 3
+  hiddenCount: 3,
+  discontinuedCount: 2
 };
 
 afterEach(() => jest.resetAllMocks());

@@ -12,15 +12,21 @@ const getProductStats = async () => {
     GROUP BY brand
     ORDER BY count DESC, brand ASC
   `);
-  // 관리자가 숨겨두고 잊어버린 상품이 없는지 확인하기 위한 카운트(단종은 별개 상태라 제외).
+  // 관리자가 숨겨두고 잊어버린 상품이 없는지 확인하기 위한 카운트.
   const [hiddenRows] = await pool.query(
     "SELECT COUNT(*) AS total FROM products WHERE status = 'hidden'"
+  );
+  // 실수로 단종 처리해두고 잊은 상품이 없는지 확인하기 위한 카운트. 목록은 늘리지 않고
+  // 개수만 알려준 뒤, 상세 확인은 기존 GET /api/admin/products?status=discontinued로 유도한다.
+  const [discontinuedRows] = await pool.query(
+    "SELECT COUNT(*) AS total FROM products WHERE status = 'discontinued'"
   );
 
   return {
     totalCount: Number(totalRows[0].total),
     byBrand: byBrandRows.map(row => ({ brand: row.brand, count: Number(row.count) })),
-    hiddenCount: Number(hiddenRows[0].total)
+    hiddenCount: Number(hiddenRows[0].total),
+    discontinuedCount: Number(discontinuedRows[0].total)
   };
 };
 
