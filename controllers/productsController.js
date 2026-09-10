@@ -12,8 +12,12 @@ let rankingRequestPromise = null;
 const PRODUCT_LIST_CACHE_TTL_SECONDS = 5 * 60;
 
 // 검색어·카테고리·브랜드 조합마다 결과가 다르므로, 조합 전체를 캐시 키에 반영한다.
+// keyword/brand는 구분자 문자(:, =) 제한이 없어 단순 문자열 연결로는 서로 다른
+// 조합이 같은 키로 충돌할 수 있어(예: keyword="a:categoryId=:brand=b" vs
+// keyword="a"+brand="b:categoryId=:brand=c"), JSON.stringify로 각 값의 경계를
+// 명확히 구분한다.
 function buildProductListCacheKey({ keyword, categoryId, brand }) {
-  return `products:list:keyword=${keyword ?? ''}:categoryId=${categoryId ?? ''}:brand=${brand ?? ''}`;
+  return `products:list:${JSON.stringify([keyword ?? '', categoryId ?? '', brand ?? ''])}`;
 }
 
 function mapRankingProducts(rows) {
