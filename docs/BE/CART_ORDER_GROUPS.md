@@ -1,6 +1,6 @@
 # 장바구니·묶음 주문 — 이슈 #94 구현 초안
 
-관련: [장바구니 설계 #94](https://github.com/adapterz/wku-iksan-store-BE/issues/94). 구현 기준은 develop `5a259b4`입니다.
+관련: [장바구니 설계 #94](https://github.com/adapterz/wku-iksan-store-BE/issues/94). 최초 구현 기준은 develop `5a259b4`이며, PR 준비 시 develop `22d6fce`를 브랜치에 통합하고 재검증했습니다.
 
 **로컬 구현·검증 단계입니다.** API·ERD 및 수량 제한에 대한 팀 검토를 거친 뒤 반영합니다. 코드 작성, develop 머지, 운영 DB 적용, main 배포는 각각 별도 단계입니다. Wiki나 운영 DB는 이 작업에서 수정하지 않았습니다.
 
@@ -118,6 +118,8 @@ npm run test:cart:db -- <로컬 DB 환경파일 절대경로>
 ```
 
 통합 스크립트는 loopback MySQL만 허용하고 임시 DB를 생성·삭제합니다. 환경파일의 DB_NAME을 사용하지 않으며 기존 데이터베이스를 변경하지 않습니다.
+
+장바구니 DB 스크립트는 라우터를 불러오기 전에 `scripts/helpers/isolate-product-cache.js`로 Redis를 격리합니다. 실제 캐시 연결·읽기·쓰기를 하지 않으므로 임시 DB 데이터가 공용 캐시에 섞이지 않습니다. 캐시 자체의 통합 검증은 이 테스트 범위가 아닙니다.
 
 - 실제 마이그레이션 3건, 과거 주문 보존, 주문 수량/선물/리뷰 관계
 - 같은 키 동시 5회, 다른 키 같은 장바구니, 양방향 선물, 수량 동시 수정

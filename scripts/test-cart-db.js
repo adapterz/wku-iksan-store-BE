@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const mysql = require('mysql2/promise');
 const request = require('supertest');
 const express = require('express');
+require('./helpers/isolate-product-cache');
 const config = process.argv[2] ? require('dotenv').parse(fs.readFileSync(process.argv[2])) : process.env;
 assert(['localhost', '127.0.0.1', '::1'].includes(config.DB_HOST), 'Local MySQL only');
 const database = 'cart_test_' + crypto.randomBytes(8).toString('hex');
