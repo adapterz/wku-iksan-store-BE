@@ -1,8 +1,8 @@
 const productModel = require('../db/models/productModel');
 const categoryModel = require('../db/models/categoryModel');
-// 랭킹은 5분 서버 캐시를 쓰므로(productsController.js), 상품 등록/수정/상태변경 후에는
-// 캐시를 초기화해야 숨김 처리한 상품이 캐시 만료 전까지 랭킹에 계속 남는 걸 막을 수 있다.
-const { resetRankingCache } = require('./productsController');
+// 랭킹·상품 목록 모두 서버 캐시를 쓰므로(productsController.js), 상품 등록/수정/상태변경 후에는
+// 캐시를 초기화해야 숨김 처리한 상품이 캐시 만료 전까지 랭킹·목록에 계속 남는 걸 막을 수 있다.
+const { resetRankingCache, invalidateProductListCache } = require('./productsController');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { parsePositiveInteger } = require('../validators/commonValidator');
@@ -71,6 +71,7 @@ async function createProduct(req, res) {
 
     const product = await productModel.createProduct(validation.value);
     resetRankingCache();
+    await invalidateProductListCache();
 
     return sendSuccess(res, {
       ...SUCCESS.ADMIN_PRODUCT_CREATE_SUCCESS,
@@ -108,6 +109,7 @@ async function updateProduct(req, res) {
       return sendError(res, ERROR.PRODUCT_NOT_FOUND);
     }
     resetRankingCache();
+    await invalidateProductListCache();
 
     return sendSuccess(res, {
       ...SUCCESS.ADMIN_PRODUCT_UPDATE_SUCCESS,
@@ -139,6 +141,7 @@ async function updateProductStatus(req, res) {
       return sendError(res, ERROR.PRODUCT_NOT_FOUND);
     }
     resetRankingCache();
+    await invalidateProductListCache();
 
     return sendSuccess(res, {
       ...SUCCESS.ADMIN_PRODUCT_STATUS_UPDATE_SUCCESS,
