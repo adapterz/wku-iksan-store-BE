@@ -1,6 +1,7 @@
 const orderModel = require('../db/models/orderModel');
 const productModel = require('../db/models/productModel');
 const userModel = require('../db/models/userModel');
+const { generateBarcode } = require('../db/models/orderWriter');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 
@@ -38,11 +39,8 @@ async function createOrder(req, res) {
     // 탈퇴/닉네임 변경 이후에도 주문 당시 닉네임을 그대로 보여주기 위한 스냅샷
     const sender = await userModel.getUserById(userId);
 
-    // 12자리 난수 생성 (바코드)
-    let barcode = '';
-    for (let i = 0; i < 12; i++) {
-      barcode += Math.floor(Math.random() * 10).toString();
-    }
+    if (!sender) return sendError(res, ERROR.UNAUTHORIZED);
+    const barcode = generateBarcode();
 
     const finalTotalPrice = product.price; // 서버에서 직접 상품 가격 조회
     const { orderId, giftId } = await orderModel.createOrderWithGift(
@@ -63,7 +61,8 @@ async function createOrder(req, res) {
     });
 
   } catch (error) {
-    console.error('Order creation error:', error);
+    if (error.cartError && ERROR[error.cartError]) return sendError(res, ERROR[error.cartError]);
+    console.error('Order creation error:', { code: error.code || 'UNKNOWN' });
     return sendError(res);
   }
 }
@@ -92,9 +91,9 @@ async function getOrderDetail(req, res) {
         orderId: order.id,
         product: product ? {
           id: product.id,
-          name: product.name,
-          brand: product.brand,
-          thumbnailUrl: product.thumbnail_url,
+          name: order.product_name_snapshot ?? product.name,
+          brand: order.brand_snapshot ?? product.brand,
+          thumbnailUrl: order.product_name_snapshot != null ? order.thumbnail_url_snapshot : product.thumbnail_url,
           validPeriod: product.valid_period
         } : null,
         totalPrice: order.total_price,

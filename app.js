@@ -20,6 +20,8 @@ const adminInquiriesRouter = require('./routes/admin/inquiries');
 const adminSanctionsRouter = require('./routes/admin/sanctions');
 const reviewsRouter = require('./routes/reviews');
 const inquiriesRouter = require('./routes/inquiries');
+const cartItemsRouter = require('./routes/cartItems');
+const orderGroupsRouter = require('./routes/orderGroups');
 
 const { sendError } = require('./routes/api');
 const { SESSION_COOKIE_NAME, getSessionCookieOptions } = require('./constants/session');
@@ -87,6 +89,8 @@ app.use('/api/admin/inquiries', adminInquiriesRouter);
 app.use('/api/admin/sanctions', adminSanctionsRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/inquiries', inquiriesRouter);
+app.use('/api/cart-items', cartItemsRouter);
+app.use('/api/order-groups', orderGroupsRouter);
 
 // 정의되지 않은 경로 처리 (Express 기본 404 HTML 대신 통일된 JSON 응답)
 app.use((req, res) => {

@@ -47,6 +47,40 @@ CREATE TABLE wishlists (
     CONSTRAINT fk_wishlists_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
+CREATE TABLE cart_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    quantity INT NOT NULL,
+    version INT NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_cart_user_product UNIQUE (user_id, product_id),
+    CONSTRAINT chk_cart_quantity CHECK (quantity BETWEEN 1 AND 10),
+    CONSTRAINT chk_cart_version CHECK (version > 0),
+    CONSTRAINT fk_cart_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cart_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE order_groups (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT,
+    receiver_id BIGINT,
+    sender_nickname_snapshot VARCHAR(50) NOT NULL,
+    receiver_nickname_snapshot VARCHAR(50) NOT NULL,
+    message VARCHAR(500),
+    is_self_gift BOOLEAN NOT NULL,
+    total_price BIGINT NOT NULL,
+    payment_status VARCHAR(20) NOT NULL,
+    idempotency_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    request_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_group_user_key UNIQUE (user_id, idempotency_key),
+    CONSTRAINT chk_group_price CHECK (total_price > 0),
+    CONSTRAINT fk_group_sender FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_group_receiver FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE orders (
     id                           BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id                      BIGINT,
@@ -58,8 +92,14 @@ CREATE TABLE orders (
     message                      VARCHAR(500),
     is_self_gift                 BOOLEAN NOT NULL,
     payment_status               VARCHAR(20) NOT NULL,
+    order_group_id               BIGINT NULL,
+    product_name_snapshot        VARCHAR(255) NULL,
+    brand_snapshot               VARCHAR(255) NULL,
+    thumbnail_url_snapshot        VARCHAR(500) NULL,
     created_at                   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
+    INDEX idx_orders_group (order_group_id, id),
+    CONSTRAINT fk_orders_group FOREIGN KEY (order_group_id) REFERENCES order_groups(id) ON DELETE RESTRICT,
     CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_orders_product FOREIGN KEY (product_id) REFERENCES products(id),
     CONSTRAINT fk_orders_receiver FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE SET NULL
@@ -75,6 +115,7 @@ CREATE TABLE gifts (
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_gifts_order_id UNIQUE (order_id),
+    CONSTRAINT uq_gifts_barcode UNIQUE (barcode),
     CONSTRAINT fk_gifts_order FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
