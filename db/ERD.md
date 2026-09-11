@@ -1,4 +1,4 @@
-# DB 관계 및 리뷰 스키마
+# DB 관계 및 기능별 스키마
 
 기존 스키마 기준: develop `4c58115`. 리뷰 추가: [설계 이슈 #77](https://github.com/adapterz/wku-iksan-store-BE/issues/77).
 전체 생성 SQL은 [schema.sql](schema.sql), 기존 DB 추가 SQL은 [migrate_reviews.sql](migrate_reviews.sql)을 사용합니다.
@@ -31,6 +31,30 @@
 - 알림 대상은 orders 기준 본인 수신·타인에게 받은 선물·결제 완료이며, 발신자 계정 존재 여부는 검사하지 않습니다.
 - 마이그레이션: [migrate_gift_notifications.sql](migrate_gift_notifications.sql). 운영 실행은 별도이며 백필은 재실행하지 않습니다.
 - API와 검증 방법: [선물 도착 알림](../docs/BE/GIFT_NOTIFICATIONS.md).
+
+## 장바구니·묶음 주문 (이슈 #94, 검토용 구현)
+
+설계 초안의 API·ERD 검토가 남아 있으며, 아래 추가 사항은 운영 DB에 적용하지 않았습니다.
+
+| 부모 | 자식 | 관계 / 삭제 정책 |
+| --- | --- | --- |
+| users / products | cart_items | 회원·상품 조합 UNIQUE, 부모 삭제 시 CASCADE |
+| users | order_groups | 발신자·수신자 FK 각각 SET NULL, 닉네임 스냅샷 보존 |
+| order_groups | orders | 묶음 1 : 수량별 주문 N, 묶음 삭제 RESTRICT |
+| orders | gifts | 기존 1 : 0..1 유지, 바코드 UNIQUE 추가 |
+
+| 테이블 | 추가 컬럼·제약 |
+| --- | --- |
+| cart_items (신규) | id, user_id, product_id, quantity(1~10), version(양수), created_at, updated_at; UNIQUE(user_id, product_id) |
+| order_groups (신규) | id, user_id, receiver_id, sender_nickname_snapshot, receiver_nickname_snapshot, message, is_self_gift, total_price(BIGINT), payment_status, idempotency_key, request_hash, created_at |
+| order_groups | UNIQUE(user_id, idempotency_key); 요청 키·해시는 ASCII binary 비교 |
+| orders | nullable order_group_id, product_name_snapshot, brand_snapshot, thumbnail_url_snapshot; INDEX(order_group_id, id) |
+| gifts | UNIQUE(barcode); 기존 중복이 있으면 임의 변경하지 않고 적용 중단 |
+
+- 커피 2개 + 빵 1개 = 묶음 1건, orders 3건, gifts 3건입니다. 교환권 사용·리뷰는 개별 선물 기준을 유지합니다.
+- 기존 주문의 새 컬럼은 NULL이며 과거 상품 정보를 현재 값으로 백필하지 않습니다. 신규 단건 주문도 상품 스냅샷을 저장합니다.
+- 보낸 선물 목록 화면은 이번 범위가 아닙니다. 발신자 소유의 묶음 상세 API만 제공합니다.
+- 상세 API·적용 순서·테스트: [장바구니·묶음 주문](../docs/BE/CART_ORDER_GROUPS.md).
 
 ## 리뷰 관계
 

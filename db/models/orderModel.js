@@ -1,70 +1,29 @@
 const pool = require('../pool');
+const { transaction, lockUsers } = require('./cartTransaction');
+const { insertOrderWithGift } = require('./orderWriter');
+const { reject } = require('../../validators/cartValidator');
 
-// 주문과 선물은 하나의 거래이므로 같은 DB 연결과 트랜잭션에서 함께 처리한다.
-const createOrderWithGift = async (
-  userId,
-  senderNickname,
-  productId,
-  receiverId,
-  receiverNickname,
-  totalPrice,
-  message,
-  isSelfGift,
-  barcode
-) => {
-  const connection = await pool.getConnection();
-  let transactionStarted = false;
-
-  try {
-    await connection.beginTransaction();
-    transactionStarted = true;
-
-    const [orderResult] = await connection.query(
-      `INSERT INTO orders
-        (user_id, sender_nickname_snapshot, product_id, receiver_id, receiver_nickname_snapshot, total_price, message, is_self_gift, payment_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, senderNickname, productId, receiverId, receiverNickname, totalPrice, message, isSelfGift, 'paid']
-    );
-
-    const [giftResult] = await connection.query(
-      `INSERT INTO gifts (order_id, barcode, status) VALUES (?, ?, ?)`,
-      [orderResult.insertId, barcode, 'unused']
-    );
-
-    await connection.commit();
-
-    return {
-      orderId: orderResult.insertId,
-      giftId: giftResult.insertId
-    };
-  } catch (error) {
-    // 두 INSERT 중 하나라도 실패하면 먼저 저장된 데이터까지 모두 취소한다.
-    if (transactionStarted) {
-      try {
-        await connection.rollback();
-      } catch (rollbackError) {
-        console.error('Order transaction rollback failed:', rollbackError);
-      }
-    }
-    throw error;
-  } finally {
-    // 성공·실패 여부와 관계없이 풀에서 빌린 연결을 반드시 반환한다.
-    connection.release();
-  }
-};
-
-const getOrderById = async (orderId) => {
+// 기존 단건 호출/응답 형식 유지. 닉네임 인자는 호환용이며 잠금 안에서 최신값을 읽는다.
+const createOrderWithGift = async (userId, senderNickname, productId, receiverId,
+  receiverNickname, totalPrice, message, isSelfGift, barcode) => transaction(async connection => {
+  const senderId = Number(userId), recipientId = Number(receiverId);
+  const users = await lockUsers(connection, senderId, recipientId);
+  const [products] = await connection.query('SELECT id, name, brand, thumbnail_url, price, status FROM products WHERE id = ? FOR UPDATE', [productId]);
+  if (!products.length) reject('PRODUCT_NOT_FOUND');
+  const product = products[0];
+  if (product.status !== 'active') reject('PRODUCT_UNAVAILABLE');
+  if (product.price !== totalPrice) reject('PRODUCT_PRICE_CHANGED');
+  if (!Number.isSafeInteger(product.price) || product.price <= 0) reject('INVALID_PRODUCT_PRICE');
+  return insertOrderWithGift(connection, { userId: senderId, senderNickname: users.get(senderId).nickname,
+    receiverId: recipientId, receiverNickname: users.get(recipientId).nickname, product,
+    message, isSelfGift }, barcode);
+});
+const getOrderById = async orderId => {
   const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [orderId]);
-  return rows.length > 0 ? rows[0] : null;
+  return rows[0] || null;
 };
-
-const getGiftByOrderId = async (orderId) => {
+const getGiftByOrderId = async orderId => {
   const [rows] = await pool.query('SELECT * FROM gifts WHERE order_id = ?', [orderId]);
-  return rows.length > 0 ? rows[0] : null;
+  return rows[0] || null;
 };
-
-module.exports = {
-  createOrderWithGift,
-  getOrderById,
-  getGiftByOrderId
-};
+module.exports = { createOrderWithGift, getOrderById, getGiftByOrderId };
