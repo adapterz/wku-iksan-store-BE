@@ -2,7 +2,7 @@
 // 값을 그대로 보여주기 위해 users 테이블이 아니라 orders.sender_nickname_snapshot을 사용한다.
 const pool = require('../pool');
 
-const getGiftsByReceiverId = async (receiverId, status) => {
+const getGiftsByReceiverId = async (receiverId, status, type) => {
   let query = `
     SELECT
       g.id as gift_id,
@@ -29,6 +29,13 @@ const getGiftsByReceiverId = async (receiverId, status) => {
   if (status === 'unused' || status === 'used') {
     query += ` AND g.status = ?`;
     params.push(status);
+  }
+
+  // type: 'self' = 나에게 선물(보낸 사람도 나), 'received' = 다른 사람에게 받은 선물.
+  // 그 외 값은 자기/받은 구분 없이 전부 반환한다.
+  if (type === 'self' || type === 'received') {
+    query += ` AND o.is_self_gift = ?`;
+    params.push(type === 'self' ? 1 : 0);
   }
 
   query += ` ORDER BY g.created_at DESC`;

@@ -42,7 +42,7 @@ describe('GET /api/gifts', () => {
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('GIFT_LIST_SUCCESS');
     expect(res.body.data[0]).toMatchObject({ giftId: 10, isSelfGift: false });
-    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, undefined);
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, undefined, undefined);
   });
 
   test('status=unused 쿼리를 모델에 그대로 전달', async () => {
@@ -52,7 +52,7 @@ describe('GET /api/gifts', () => {
     const res = await request(app).get('/api/gifts').query({ status: 'unused' });
 
     expect(res.status).toBe(200);
-    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'unused');
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'unused', undefined);
   });
 
   test('status=used 쿼리를 모델에 그대로 전달', async () => {
@@ -62,7 +62,7 @@ describe('GET /api/gifts', () => {
     const res = await request(app).get('/api/gifts').query({ status: 'used' });
 
     expect(res.status).toBe(200);
-    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'used');
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'used', undefined);
   });
 
   test('알 수 없는 status 값도 검증 없이 그대로 모델에 전달', async () => {
@@ -72,7 +72,37 @@ describe('GET /api/gifts', () => {
     const res = await request(app).get('/api/gifts').query({ status: 'weird' });
 
     expect(res.status).toBe(200);
-    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'weird');
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'weird', undefined);
+  });
+
+  test('type=self 쿼리를 모델에 그대로 전달', async () => {
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/gifts').query({ type: 'self' });
+
+    expect(res.status).toBe(200);
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, undefined, 'self');
+  });
+
+  test('type=received 쿼리를 모델에 그대로 전달', async () => {
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/gifts').query({ type: 'received' });
+
+    expect(res.status).toBe(200);
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, undefined, 'received');
+  });
+
+  test('status와 type을 함께 전달하면 둘 다 모델에 그대로 전달', async () => {
+    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/gifts').query({ status: 'unused', type: 'received' });
+
+    expect(res.status).toBe(200);
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'unused', 'received');
   });
 
   test('DB 오류가 나면 기본 500 오류 응답', async () => {

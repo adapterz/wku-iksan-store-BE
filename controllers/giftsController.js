@@ -14,11 +14,12 @@ function reviewFields(gift, userId) {
 async function getGifts(req, res) {
   try {
     const receiverId = req.session.userId;
-    const { status } = req.query;
+    const { status, type } = req.query;
 
-    // Call the model function. It handles filtering if status is 'unused' or 'used'.
-    // Invalid status defaults to returning all gifts.
-    const gifts = await giftModel.getGiftsByReceiverId(receiverId, status);
+    // Call the model function. It handles filtering if status is 'unused' or 'used',
+    // and separately if type is 'self'(나에게 선물) or 'received'(받은 선물).
+    // Invalid/missing status나 type은 그 기준의 필터 없이 전부 반환한다.
+    const gifts = await giftModel.getGiftsByReceiverId(receiverId, status, type);
 
     // Map snake_case to camelCase
     const formattedData = gifts.map(gift => ({
