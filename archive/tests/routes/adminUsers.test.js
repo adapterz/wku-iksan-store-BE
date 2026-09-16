@@ -130,3 +130,81 @@ describe('PATCH /api/admin/users/:id/role', () => {
     expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
   });
 });
+
+describe('GET /api/admin/users', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  function mockAdminSession() {
+    userModel.getUserById.mockResolvedValue({ id: 1, role: 'admin' });
+  }
+
+  test('로그인하지 않은 상태면 401 UNAUTHORIZED', async () => {
+    const app = createTestApp('/api/admin/users', adminUsersRouter, { session: {} });
+
+    const res = await request(app).get('/api/admin/users').query({ nickname: 'aon' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('UNAUTHORIZED');
+    expect(userModel.getUserByNickname).not.toHaveBeenCalled();
+  });
+
+  test('관리자가 아니면 403 FORBIDDEN_NOT_ADMIN', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, role: 'user' });
+    const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).get('/api/admin/users').query({ nickname: 'aon' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('FORBIDDEN_NOT_ADMIN');
+    expect(userModel.getUserByNickname).not.toHaveBeenCalled();
+  });
+
+  test('nickname 쿼리가 없으면 400 REQUIRED_NICKNAME', async () => {
+    mockAdminSession();
+    const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).get('/api/admin/users');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('REQUIRED_NICKNAME');
+  });
+
+  test('대상 유저가 없으면 404 USER_NOT_FOUND', async () => {
+    mockAdminSession();
+    userModel.getUserByNickname.mockResolvedValue(null);
+    const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).get('/api/admin/users').query({ nickname: 'ghost' });
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('USER_NOT_FOUND');
+  });
+
+  test('정상 조회 시 200과 userId/nickname/role만 반환 (이메일 미포함)', async () => {
+    mockAdminSession();
+    userModel.getUserByNickname.mockResolvedValue({
+      id: 7, nickname: 'aon', role: 'user', email: 'aon@example.com', password: 'hashed'
+    });
+    const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).get('/api/admin/users').query({ nickname: 'aon' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('ADMIN_USER_LOOKUP_SUCCESS');
+    expect(res.body.data).toEqual({ userId: 7, nickname: 'aon', role: 'user' });
+    expect(userModel.getUserByNickname).toHaveBeenCalledWith('aon');
+  });
+
+  test('DB 오류가 나면 기본 500 오류 응답', async () => {
+    mockAdminSession();
+    userModel.getUserByNickname.mockRejectedValue(new Error('DB down'));
+    const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).get('/api/admin/users').query({ nickname: 'aon' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  });
+});

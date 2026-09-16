@@ -1,12 +1,15 @@
 const pool = require('../pool');
 
+// review_id가 NULL이 아닌(=리뷰가 아직 삭제되지 않은) 신고는 LEFT JOIN으로 작성자 id를
+// 같이 내려준다. 리뷰가 삭제된 신고는 author_id도 NULL이 된다(이슈 #97 BE-1 (1a)).
 const REPORT_SELECT = `
-  SELECT id, review_id, reporter_id, review_content_snapshot,
-         review_rating_snapshot, reason, status, created_at
-  FROM reports`;
+  SELECT r.id, r.review_id, r.reporter_id, rv.user_id AS author_id,
+         r.review_content_snapshot, r.review_rating_snapshot, r.reason, r.status, r.created_at
+  FROM reports r
+  LEFT JOIN reviews rv ON rv.id = r.review_id`;
 
 const getReportById = async (id, connection = pool) => {
-  const [rows] = await connection.query(`${REPORT_SELECT} WHERE id = ?`, [id]);
+  const [rows] = await connection.query(`${REPORT_SELECT} WHERE r.id = ?`, [id]);
   return rows.length > 0 ? rows[0] : null;
 };
 
@@ -25,15 +28,15 @@ const getReports = async ({ status = null, page, limit }) => {
   const params = [];
 
   if (status !== null) {
-    conditions.push('status = ?');
+    conditions.push('r.status = ?');
     params.push(status);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const [totals] = await pool.query(`SELECT COUNT(*) AS total FROM reports ${whereClause}`, params);
+  const [totals] = await pool.query(`SELECT COUNT(*) AS total FROM reports r ${whereClause}`, params);
   const [rows] = await pool.query(
-    `${REPORT_SELECT} ${whereClause} ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`,
+    `${REPORT_SELECT} ${whereClause} ORDER BY r.created_at ASC, r.id ASC LIMIT ? OFFSET ?`,
     [...params, limit, (page - 1) * limit]
   );
   return { rows, totalCount: Number(totals[0].total) };

@@ -5,6 +5,7 @@ const requireAdmin = require('../../middlewares/requireAdmin');
 const adminUsersController = require('../../controllers/adminUsersController');
 const adminSanctionsController = require('../../controllers/adminSanctionsController');
 
+router.get('/', requireLogin, requireAdmin, adminUsersController.searchUserByNickname);
 router.patch('/:id/role', requireLogin, requireAdmin, adminUsersController.updateUserRole);
 router.post('/:id/sanctions', requireLogin, requireAdmin, adminSanctionsController.createSanction);
 router.get('/:id/sanctions', requireLogin, requireAdmin, adminSanctionsController.getUserSanctions);

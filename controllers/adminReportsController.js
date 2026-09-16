@@ -11,6 +11,7 @@ function mapReport(row) {
     reportId: row.id,
     reviewId: row.review_id,
     reporterId: row.reporter_id,
+    authorId: row.author_id,
     reviewContentSnapshot: row.review_content_snapshot,
     reviewRatingSnapshot: row.review_rating_snapshot,
     reason: row.reason,
