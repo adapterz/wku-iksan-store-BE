@@ -20,7 +20,7 @@ function mockAdminSession() {
 let connection;
 
 const reportRow = {
-  id: 5, review_id: 9, reporter_id: 2,
+  id: 5, review_id: 9, reporter_id: 2, author_id: 3,
   review_content_snapshot: '별로예요', review_rating_snapshot: 1,
   reason: '욕설이 포함되어 있습니다', status: 'pending', created_at: '2026-09-07T00:00:00Z'
 };
@@ -64,7 +64,7 @@ describe('GET /api/admin/reports', () => {
     expect(res.body.code).toBe('ADMIN_REPORT_LIST_SUCCESS');
     expect(reportModel.getReports).toHaveBeenCalledWith({ status: 'pending', page: 1, limit: 10 });
     expect(res.body.data[0]).toEqual({
-      reportId: 5, reviewId: 9, reporterId: 2,
+      reportId: 5, reviewId: 9, reporterId: 2, authorId: 3,
       reviewContentSnapshot: '별로예요', reviewRatingSnapshot: 1,
       reason: '욕설이 포함되어 있습니다', status: 'pending', createdAt: reportRow.created_at
     });
