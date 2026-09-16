@@ -2,7 +2,8 @@ const userModel = require('../db/models/userModel');
 const bcrypt = require('bcrypt');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
-const { SESSION_COOKIE_NAME, getSessionCookieOptions } = require('../constants/session');
+const { cleanupSession } = require('../helpers/sessionCleanup');
+const { isValidAuthVersion } = require('../constants/authVersion');
 const {
   validateEmail,
   validateSignupPassword,
@@ -43,15 +44,6 @@ function regenerateSession(req) {
 function saveSession(req) {
   return new Promise((resolve, reject) => {
     req.session.save((error) => {
-      if (error) return reject(error);
-      return resolve();
-    });
-  });
-}
-
-function destroySession(req) {
-  return new Promise((resolve, reject) => {
-    req.session.destroy((error) => {
       if (error) return reject(error);
       return resolve();
     });
@@ -143,8 +135,11 @@ async function login(req, res) {
     }
 
     // 로그인 전후 세션 ID를 교체해 기존 세션이 인증 세션으로 이어지지 않도록 한다.
+    if (!isValidAuthVersion(user.auth_version)) return sendError(res);
     await regenerateSession(req);
     req.session.userId = user.id;
+    // 비밀번호 검증에 사용한 동일 스냅샷의 버전만 저장한다.
+    req.session.authVersion = user.auth_version;
     await saveSession(req);
 
     return sendSuccess(res, {
@@ -157,7 +152,8 @@ async function login(req, res) {
     });
 
   } catch (error) {
-    console.error('Error in POST /api/auth/login:', error);
+    console.error('Error in POST /api/auth/login:', { code: error.code || 'UNKNOWN' });
+    try { await cleanupSession(req, res); } catch (_) { /* 로그인 실패 응답은 유지 */ }
     return sendError(res);
   }
 }
@@ -165,14 +161,10 @@ async function login(req, res) {
 // POST /api/auth/logout - 로그아웃
 async function logout(req, res) {
   try {
-    await destroySession(req);
-    res.clearCookie(
-      SESSION_COOKIE_NAME,
-      getSessionCookieOptions(process.env.NODE_ENV === 'production')
-    );
+    await cleanupSession(req, res);
     return sendSuccess(res, SUCCESS.LOGOUT_SUCCESS);
   } catch (error) {
-    console.error('Error in POST /api/auth/logout:', error);
+    console.error('Error in POST /api/auth/logout:', { code: error.code || 'UNKNOWN' });
     return sendError(res);
   }
 }
