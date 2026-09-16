@@ -115,12 +115,13 @@ describe('POST /api/auth/login', () => {
 
   test('정상 로그인되면 200 LOGIN_SUCCESS와 유저 정보 반환', async () => {
     userModel.getUserByEmail.mockResolvedValue({
-      id: 1, email: 'user@example.com', nickname: '아온', password: 'hashed-pw'
+      id: 1, email: 'user@example.com', nickname: '아온', password: 'hashed-pw', auth_version: 1
     });
     bcrypt.compare.mockResolvedValue(true);
     const regenerate = jest.fn((callback) => callback());
     const save = jest.fn(function saveSession(callback) {
       expect(this.userId).toBe(1);
+      expect(this.authVersion).toBe(1);
       callback();
     });
     const app = createTestApp('/api/auth', authRouter, { session: { regenerate, save } });
@@ -139,7 +140,7 @@ describe('POST /api/auth/login', () => {
 
   test('세션 ID 재발급에 실패하면 500이고 로그인 성공으로 처리하지 않음', async () => {
     userModel.getUserByEmail.mockResolvedValue({
-      id: 1, email: 'user@example.com', nickname: '아온', password: 'hashed-pw'
+      id: 1, email: 'user@example.com', nickname: '아온', password: 'hashed-pw', auth_version: 1
     });
     bcrypt.compare.mockResolvedValue(true);
     const regenerate = jest.fn((callback) => callback(new Error('regenerate failed')));
@@ -159,7 +160,7 @@ describe('POST /api/auth/login', () => {
 
   test('새 세션 저장에 실패하면 500이고 로그인 성공으로 처리하지 않음', async () => {
     userModel.getUserByEmail.mockResolvedValue({
-      id: 1, email: 'user@example.com', nickname: '아온', password: 'hashed-pw'
+      id: 1, email: 'user@example.com', nickname: '아온', password: 'hashed-pw', auth_version: 1
     });
     bcrypt.compare.mockResolvedValue(true);
     const regenerate = jest.fn((callback) => callback());
@@ -182,13 +183,13 @@ describe('POST /api/auth/logout', () => {
     jest.resetAllMocks();
   });
 
-  test('로그인하지 않으면 401 UNAUTHORIZED', async () => {
+  test('로그인하지 않았어도 쿠키 정리 후 200 LOGOUT_SUCCESS', async () => {
     const app = createTestApp('/api/auth', authRouter, { session: {} });
 
     const res = await request(app).post('/api/auth/logout');
 
-    expect(res.status).toBe(401);
-    expect(res.body.code).toBe('UNAUTHORIZED');
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('LOGOUT_SUCCESS');
   });
 
   test('로그인 상태면 세션과 브라우저 쿠키를 제거하고 200 LOGOUT_SUCCESS', async () => {
@@ -228,7 +229,7 @@ describe('POST /api/auth/logout', () => {
     }
   });
 
-  test('세션 파기에 실패하면 쿠키를 제거하지 않고 500 반환', async () => {
+  test('세션 파기에 실패해도 쿠키를 제거하고 500 반환', async () => {
     const destroy = jest.fn((callback) => callback(new Error('destroy failed')));
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     const app = createTestApp('/api/auth', authRouter, { session: { userId: 1, destroy } });
@@ -237,7 +238,7 @@ describe('POST /api/auth/logout', () => {
 
     expect(res.status).toBe(500);
     expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
-    expect(res.headers['set-cookie']).toBeUndefined();
+    expect(res.headers['set-cookie'][0]).toContain('connect.sid=;');
     consoleError.mockRestore();
   });
 });

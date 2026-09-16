@@ -60,7 +60,7 @@ async function main() {
   const app = express();
   app.use(express.json());
   // Test-only session injection. Production login/session behavior is not replaced in app.js.
-  app.use((req, res, next) => { req.session = { userId: Number(req.get('x-test-user')) || undefined }; next(); });
+  app.use((req, res, next) => { req.session = { userId: Number(req.get('x-test-user')) || undefined, authVersion: 1, destroy: cb => cb() }; next(); });
   app.use('/api/gifts', require('../routes/gifts'));
   const get = (user = 2) => request(app).get('/api/gifts/unnotified').set('x-test-user', String(user));
   const notify = (ids, user = 2) => request(app).patch('/api/gifts/notify').set('x-test-user', String(user)).send({ giftIds: ids });

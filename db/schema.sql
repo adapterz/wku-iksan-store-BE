@@ -2,6 +2,7 @@ CREATE TABLE users (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     email           VARCHAR(255) NOT NULL,
     password        VARCHAR(255) NOT NULL,
+    auth_version    INT UNSIGNED NOT NULL DEFAULT 1,
     role            VARCHAR(20) NOT NULL DEFAULT 'user',
     nickname        VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

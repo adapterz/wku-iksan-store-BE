@@ -44,7 +44,7 @@ async function main() {
   pool = require('../db/pool');
   const app = express(); app.use(express.json());
   // Test-only session fixture, not a route or header accepted by the production app.
-  app.use((req, res, next) => { req.session = { userId: Number(req.get('X-Fixture-User')) || undefined }; next(); });
+  app.use((req, res, next) => { req.session = { userId: Number(req.get('X-Fixture-User')) || undefined, authVersion: 1, destroy: cb => cb() }; next(); });
   app.use('/api/cart-items', require('../routes/cartItems'));
   app.use('/api/order-groups', require('../routes/orderGroups'));
   for (const route of ['orders', 'gifts', 'products', 'reviews']) app.use('/api/' + route, require('../routes/' + route));

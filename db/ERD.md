@@ -6,6 +6,14 @@
 
 ## 기존 관계
 
+### 회원 인증 버전 (#122)
+
+`users.auth_version`: `INT UNSIGNED NOT NULL DEFAULT 1` (유효 범위 1~4294967295).
+로그인 시 서버 세션 `authVersion`에 저장하며, 비밀번호 변경 시 원자적으로 1 증가한다.
+상한에서는 비밀번호 변경을 거부하고 값을 초기화/재사용하지 않는다. 별도 FK/인덱스는 없다.
+마이그레이션: [migrate_user_auth_version.sql](migrate_user_auth_version.sql).
+API/배포 주의사항: [세션 무효화](../docs/BE/SESSION_INVALIDATION.md). 운영 적용은 별도다.
+
 | 부모 | 자식 | 관계 / 삭제 정책 |
 | --- | --- | --- |
 | categories | products | 카테고리 1 : 상품 N, 상품 존재 시 카테고리 삭제 제한 |

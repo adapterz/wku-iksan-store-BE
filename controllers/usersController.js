@@ -10,6 +10,8 @@ const { invalidateProductListCache } = require('./productsController');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { SESSION_COOKIE_NAME, getSessionCookieOptions } = require('../constants/session');
+const { cleanupSession } = require('../helpers/sessionCleanup');
+const { isValidAuthVersion, MAX_AUTH_VERSION } = require('../constants/authVersion');
 const {
   validateEmail,
   validateSignupPassword,
@@ -173,18 +175,36 @@ async function updatePassword(req, res) {
       return sendError(res, ERROR.UNAUTHORIZED);
     }
 
+    // 인증 검사 직후 다른 기기에서 변경됐을 수도 있다. 새 버전을 구 세션에 붙이지 않는다.
+    if (!isValidAuthVersion(user.auth_version) || user.auth_version !== req.session.authVersion) {
+      try { await cleanupSession(req, res); } catch (_) { /* 접근은 계속 거부 */ }
+      return sendError(res, ERROR.UNAUTHORIZED);
+    }
+    if (user.auth_version === MAX_AUTH_VERSION) return sendError(res);
+
     const isMatch = await bcrypt.compare(currentPasswordValidation.value, user.password);
     if (!isMatch) {
       return sendError(res, ERROR.INVALID_PASSWORD);
     }
 
     const hashedPassword = await bcrypt.hash(newPasswordValidation.value, 10);
-    await userModel.updateUserPassword(userId, hashedPassword);
+    const changed = await userModel.updateUserPassword(userId, hashedPassword, user.auth_version);
+    if (!changed) {
+      try { await cleanupSession(req, res); } catch (_) { /* 충돌 응답 유지 */ }
+      return sendError(res, ERROR.PASSWORD_CHANGE_CONFLICT);
+    }
+
+    // DB 갱신은 완료됐다. 정리 실패/응답 유실에도 모든 구 세션의 버전은 이미 무효다.
+    try {
+      await cleanupSession(req, res);
+    } catch (error) {
+      console.error('Session cleanup failed after password change:', { code: error.code || 'UNKNOWN' });
+    }
 
     return sendSuccess(res, SUCCESS.PASSWORD_UPDATE_SUCCESS);
 
   } catch (error) {
-    console.error('Error in PATCH /api/users/me/password:', error);
+    console.error('Error in PATCH /api/users/me/password:', { code: error.code || 'UNKNOWN' });
     return sendError(res);
   }
 }

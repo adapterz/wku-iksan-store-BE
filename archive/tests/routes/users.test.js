@@ -307,7 +307,7 @@ describe('PATCH /api/users/me/password', () => {
   });
 
   test('현재 비밀번호가 일치하지 않으면 401 INVALID_PASSWORD', async () => {
-    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed', auth_version: 1 });
     bcrypt.compare.mockResolvedValue(false);
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 
@@ -321,7 +321,8 @@ describe('PATCH /api/users/me/password', () => {
   });
 
   test('정상 변경되면 200 PASSWORD_UPDATE_SUCCESS', async () => {
-    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed', auth_version: 1 });
+    userModel.updateUserPassword.mockResolvedValue(true);
     bcrypt.compare.mockResolvedValue(true);
     bcrypt.hash.mockResolvedValue('new-hashed');
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
@@ -333,7 +334,7 @@ describe('PATCH /api/users/me/password', () => {
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('PASSWORD_UPDATE_SUCCESS');
     expect(bcrypt.hash).toHaveBeenCalledWith('newSecurePw1', 10);
-    expect(userModel.updateUserPassword).toHaveBeenCalledWith(1, 'new-hashed');
+    expect(userModel.updateUserPassword).toHaveBeenCalledWith(1, 'new-hashed', 1);
   });
 
   test('DB 오류가 나면 기본 500 오류 응답', async () => {

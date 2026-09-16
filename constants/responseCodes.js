@@ -125,6 +125,8 @@ const ERROR = {
   NICKNAME_ALREADY_EXISTS: { status: 409, code: 'NICKNAME_ALREADY_EXISTS' },
   INVALID_EMAIL_OR_PASSWORD: { status: 401, code: 'INVALID_EMAIL_OR_PASSWORD' },
   INVALID_PASSWORD: { status: 401, code: 'INVALID_PASSWORD' },
+  PASSWORD_CHANGE_CONFLICT: { status: 409, code: 'PASSWORD_CHANGE_CONFLICT', message: '인증 정보가 변경되었습니다. 다시 로그인해 주세요.' },
+  TOO_MANY_REQUESTS: { status: 429, code: 'TOO_MANY_REQUESTS', message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' },
   UNAUTHORIZED: { status: 401, code: 'UNAUTHORIZED' },
   FORBIDDEN_NOT_ADMIN: { status: 403, code: 'FORBIDDEN_NOT_ADMIN' },
   CANNOT_DEMOTE_SELF: { status: 403, code: 'CANNOT_DEMOTE_SELF' },
