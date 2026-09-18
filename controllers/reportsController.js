@@ -29,6 +29,7 @@ async function createReport(req, res) {
 
     const report = await reportModel.createReport(req.session.userId, {
       reviewId,
+      authorId: review.user_id,
       reviewContentSnapshot: review.content,
       reviewRatingSnapshot: review.rating,
       reason: reasonValidation.value
