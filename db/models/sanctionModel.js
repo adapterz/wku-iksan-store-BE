@@ -101,11 +101,58 @@ const liftSanction = async (id, runner = pool) => {
   return sanction;
 };
 
+// 알림함 미확인 뱃지/토스트 판단용. 대상은 warning뿐이며(이슈 #97), 해제(lifted)된
+// 경고도 제외하지 않는다 — countWarnings이 lifted도 계속 카운트하는 것과 같은 결.
+const getUnnotifiedWarningIds = async (userId) => {
+  const [rows] = await pool.query(
+    "SELECT id FROM user_sanctions WHERE user_id = ? AND type = 'warning' AND notified_at IS NULL ORDER BY id ASC",
+    [userId]
+  );
+  return rows.map(row => row.id);
+};
+
+// giftModel.notifyGifts와 동일한 패턴: 대상 소유권을 잠금 조회로 재확인한 뒤에만
+// 갱신한다. 요청 ID 중 하나라도 본인 소유가 아니거나 warning이 아니면 전체 거부한다
+// (남의 제재 존재 여부를 구분해서 노출하지 않기 위해 gift 쪽과 동일하게 처리).
+const notifySanctions = async (userId, sanctionIds) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const placeholders = sanctionIds.map(() => '?').join(',');
+    const [rows] = await connection.query(
+      `SELECT id FROM user_sanctions
+       WHERE user_id = ? AND type = 'warning' AND id IN (${placeholders})
+       ORDER BY id ASC FOR UPDATE`,
+      [userId, ...sanctionIds]
+    );
+    if (rows.length !== sanctionIds.length) {
+      await connection.rollback();
+      return false;
+    }
+    // 이미 확인한 행도 포함해 재시도를 허용한다. notified_at IS NULL인 행만 바뀌어
+    // 최초 확인 시각이 유지된다.
+    await connection.query(
+      `UPDATE user_sanctions SET notified_at = CURRENT_TIMESTAMP
+       WHERE id IN (${placeholders}) AND notified_at IS NULL`,
+      sanctionIds
+    );
+    await connection.commit();
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   getSanctionById,
   countWarnings,
   createSanction,
   getActiveSuspension,
   getUserSanctions,
-  liftSanction
+  liftSanction,
+  getUnnotifiedWarningIds,
+  notifySanctions
 };

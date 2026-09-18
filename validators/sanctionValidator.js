@@ -72,4 +72,20 @@ function validateSanctionListQuery(query = {}) {
   return { value: { page, limit } };
 }
 
-module.exports = { validateSanctionReason, validateSanctionCreateInput, validateSanctionListQuery };
+// PATCH /api/users/me/sanctions/notify 본문 검증. giftNotificationValidator와 동일한
+// 규칙: 문자열 ID는 허용하지 않고, 중복은 제거하고 오름차순으로 정리한다.
+function validateSanctionNotificationInput(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) ||
+      !Array.isArray(body.sanctionIds) || body.sanctionIds.length === 0 ||
+      body.sanctionIds.some(id => parsePositiveInteger(id) === null)) {
+    return { errorCode: 'INVALID_SANCTION_IDS' };
+  }
+  return { value: [...new Set(body.sanctionIds)].sort((a, b) => a - b) };
+}
+
+module.exports = {
+  validateSanctionReason,
+  validateSanctionCreateInput,
+  validateSanctionListQuery,
+  validateSanctionNotificationInput
+};

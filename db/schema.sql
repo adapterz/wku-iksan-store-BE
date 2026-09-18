@@ -201,6 +201,7 @@ CREATE TABLE user_sanctions (
     issued_by       BIGINT,
     ends_at         DATETIME,
     status          VARCHAR(20) NOT NULL DEFAULT 'active',
+    notified_at     DATETIME NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_sanctions_user
