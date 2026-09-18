@@ -124,3 +124,53 @@ describe('경고 등록 (동시 요청 방지)', () => {
     expect(connection.release).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('getUnnotifiedWarningIds', () => {
+  test('warning이면서 notified_at이 NULL인 id만 오름차순으로 반환', async () => {
+    pool.query.mockResolvedValueOnce([[{ id: 3 }, { id: 7 }]]);
+
+    const result = await model.getUnnotifiedWarningIds(5);
+
+    expect(result).toEqual([3, 7]);
+    expect(pool.query.mock.calls[0][0]).toContain("type = 'warning'");
+    expect(pool.query.mock.calls[0][0]).toContain('notified_at IS NULL');
+    expect(pool.query.mock.calls[0][1]).toEqual([5]);
+  });
+});
+
+describe('notifySanctions', () => {
+  test('본인 소유의 warning ID를 모두 잠금 조회로 확인한 뒤 갱신', async () => {
+    connection.query
+      .mockResolvedValueOnce([[{ id: 51 }, { id: 52 }]])  // SELECT ... FOR UPDATE
+      .mockResolvedValueOnce([{ affectedRows: 2 }]);       // UPDATE
+
+    const result = await model.notifySanctions(5, [51, 52]);
+
+    expect(result).toBe(true);
+    expect(connection.query.mock.calls[0][0]).toContain('FOR UPDATE');
+    expect(connection.query.mock.calls[0][0]).toContain("type = 'warning'");
+    expect(connection.query.mock.calls[1][0]).toContain('notified_at IS NULL');
+    expect(connection.commit).toHaveBeenCalledTimes(1);
+    expect(connection.release).toHaveBeenCalledTimes(1);
+  });
+
+  test('요청 ID 중 본인 소유가 아니거나 warning이 아닌 것이 섞이면 전체 rollback 후 false', async () => {
+    connection.query.mockResolvedValueOnce([[{ id: 51 }]]);  // 51만 매칭, 52는 안 됨
+
+    const result = await model.notifySanctions(5, [51, 52]);
+
+    expect(result).toBe(false);
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+    expect(connection.query).toHaveBeenCalledTimes(1);
+  });
+
+  test('DB 오류 시 rollback 후 예외 전파', async () => {
+    connection.query.mockRejectedValueOnce(new Error('offline'));
+
+    await expect(model.notifySanctions(5, [51])).rejects.toThrow('offline');
+
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.release).toHaveBeenCalledTimes(1);
+  });
+});

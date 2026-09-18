@@ -1,7 +1,8 @@
 const {
   validateSanctionReason,
   validateSanctionCreateInput,
-  validateSanctionListQuery
+  validateSanctionListQuery,
+  validateSanctionNotificationInput
 } = require('../../../validators/sanctionValidator');
 
 describe('validateSanctionReason', () => {
@@ -98,5 +99,17 @@ describe('validateSanctionListQuery', () => {
   test('page/limit 검증은 다른 목록 API와 동일한 규칙', () => {
     expect(validateSanctionListQuery({ page: '0' }).errorCode).toBe('INVALID_PAGE');
     expect(validateSanctionListQuery({ limit: '100' }).errorCode).toBe('INVALID_LIMIT');
+  });
+});
+
+describe('validateSanctionNotificationInput', () => {
+  test.each([{}, { sanctionIds: [] }, { sanctionIds: null }, { sanctionIds: '1' },
+    ...[0, -1, 1.2, '1', null, true, {}, [], Number.MAX_SAFE_INTEGER + 1].map(id => ({ sanctionIds: [id] }))
+  ])('잘못된 ID 배열 거부: %j', body => {
+    expect(validateSanctionNotificationInput(body).errorCode).toBe('INVALID_SANCTION_IDS');
+  });
+
+  test('중복 제거 후 오름차순으로 정리', () => {
+    expect(validateSanctionNotificationInput({ sanctionIds: [52, 51, 52] })).toEqual({ value: [51, 52] });
   });
 });
