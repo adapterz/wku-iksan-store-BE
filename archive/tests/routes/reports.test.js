@@ -9,7 +9,7 @@ const reviewsRouter = require('../../../routes/reviews');
 
 const app = (userId = 1) => createTestApp('/api/reviews', reviewsRouter, { session: userId ? { userId } : {} });
 
-const review = { id: 9, content: '별로예요', rating: 1 };
+const review = { id: 9, user_id: 7, content: '별로예요', rating: 1 };
 const reportRow = {
   id: 5, review_id: 9, reporter_id: 1,
   review_content_snapshot: '별로예요', review_rating_snapshot: 1,
@@ -67,6 +67,7 @@ describe('POST /api/reviews/:id/reports', () => {
     expect(res.body.code).toBe('REPORT_CREATE_SUCCESS');
     expect(reportModel.createReport).toHaveBeenCalledWith(1, {
       reviewId: 9,
+      authorId: 7,
       reviewContentSnapshot: '별로예요',
       reviewRatingSnapshot: 1,
       reason: '욕설이 포함되어 있습니다'

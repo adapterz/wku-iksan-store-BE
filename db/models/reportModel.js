@@ -1,9 +1,11 @@
 const pool = require('../pool');
 
 // review_id가 NULL이 아닌(=리뷰가 아직 삭제되지 않은) 신고는 LEFT JOIN으로 작성자 id를
-// 같이 내려준다. 리뷰가 삭제된 신고는 author_id도 NULL이 된다(이슈 #97 BE-1 (1a)).
+// 같이 내려준다(이슈 #97 BE-1 (1a)). 리뷰가 삭제되면 review_id도 NULL이 되어 이 JOIN이
+// 끊기므로, 접수 시점에 저장해둔 review_author_id_snapshot으로 대체한다(1b).
 const REPORT_SELECT = `
-  SELECT r.id, r.review_id, r.reporter_id, rv.user_id AS author_id,
+  SELECT r.id, r.review_id, r.reporter_id,
+         COALESCE(rv.user_id, r.review_author_id_snapshot) AS author_id,
          r.review_content_snapshot, r.review_rating_snapshot, r.reason, r.status, r.created_at
   FROM reports r
   LEFT JOIN reviews rv ON rv.id = r.review_id`;
@@ -13,11 +15,11 @@ const getReportById = async (id, connection = pool) => {
   return rows.length > 0 ? rows[0] : null;
 };
 
-const createReport = async (reporterId, { reviewId, reviewContentSnapshot, reviewRatingSnapshot, reason }) => {
+const createReport = async (reporterId, { reviewId, authorId, reviewContentSnapshot, reviewRatingSnapshot, reason }) => {
   const [result] = await pool.query(
-    `INSERT INTO reports (review_id, reporter_id, review_content_snapshot, review_rating_snapshot, reason)
-     VALUES (?, ?, ?, ?, ?)`,
-    [reviewId, reporterId, reviewContentSnapshot, reviewRatingSnapshot, reason]
+    `INSERT INTO reports (review_id, reporter_id, review_author_id_snapshot, review_content_snapshot, review_rating_snapshot, reason)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [reviewId, reporterId, authorId, reviewContentSnapshot, reviewRatingSnapshot, reason]
   );
   return getReportById(result.insertId);
 };
