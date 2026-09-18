@@ -1,6 +1,7 @@
 const cart = require('../db/models/cartModel');
 const groups = require('../db/models/orderGroupModel');
 const validate = require('../validators/cartValidator');
+const { validateDirectOrder } = require('../validators/directOrderValidator');
 const { parsePositiveInteger } = require('../validators/commonValidator');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
@@ -28,5 +29,6 @@ module.exports = {
   removeOne: handler(req => cart.remove(req.session.userId, [id(req)]), 'CART_REMOVE_SUCCESS'),
   removeMany: handler(req => cart.remove(req.session.userId, validate.validateIds(req.body)), 'CART_REMOVE_SUCCESS'),
   createGroup: handler(req => groups.create(req.session.userId, validate.validateGroup(req.body, req.get('Idempotency-Key'), req.session.userId)), 'ORDER_GROUP_CREATE_SUCCESS'),
+  createDirectGroup: handler(req => groups.createDirect(req.session.userId, validateDirectOrder(req.body, req.get('Idempotency-Key'), req.session.userId)), 'ORDER_GROUP_CREATE_SUCCESS'),
   getGroup: handler(req => groups.get(req.session.userId, id(req, 'INVALID_ORDER_GROUP_ID')), 'ORDER_GROUP_DETAIL_SUCCESS')
 };
