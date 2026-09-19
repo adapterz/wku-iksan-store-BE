@@ -1,6 +1,6 @@
 const pool = require('../pool');
 const { transaction, lockUsers } = require('./cartTransaction');
-const { insertOrderWithGift } = require('./orderWriter');
+const { insertOrdersWithGiftsBatch } = require('./orderWriter');
 const { reject } = require('../../validators/cartValidator');
 
 async function loadDetail(group, runner) {
@@ -47,17 +47,26 @@ async function create(userId, body) {
     const existing = await findRequest(connection, userId, body.key, true);
     if (existing) return replay(existing, body.hash, connection);
     if (!users.has(body.receiverId)) reject('RECEIVER_NOT_FOUND');
-    const rows = [];
-    for (const item of body.items) {
-      const [found] = await connection.query('SELECT id, product_id, quantity, version FROM cart_items WHERE id = ? AND user_id = ? FOR UPDATE', [item.cartItemId, userId]);
-      if (!found.length) reject('CART_ITEM_NOT_FOUND');
-      rows.push(found[0]);
-    }
-    const products = new Map();
-    for (const productId of [...new Set(rows.map(row => row.product_id))].sort((a, b) => a - b)) {
-      const [found] = await connection.query('SELECT id, name, brand, thumbnail_url, price, status FROM products WHERE id = ? FOR UPDATE', [productId]);
-      products.set(productId, found[0]);
-    }
+    // 카트 아이템/상품을 건별로 조회하던 것을 IN(...) 한 번으로 묶는다. 잠금 순서는
+    // ORDER BY id로 그대로 유지해 기존 데드락 방지 정책을 깨지 않는다. 반환 순서는
+    // DB가 정한 순서이므로, 이후 로직이 기대하는 body.items 순서로 다시 맞춘다.
+    const cartItemIds = body.items.map(item => item.cartItemId);
+    const [foundCartItems] = await connection.query(
+      `SELECT id, product_id, quantity, version FROM cart_items
+       WHERE user_id = ? AND id IN (${cartItemIds.map(() => '?').join(',')}) ORDER BY id FOR UPDATE`,
+      [userId, ...cartItemIds]
+    );
+    if (foundCartItems.length !== cartItemIds.length) reject('CART_ITEM_NOT_FOUND');
+    const cartItemsById = new Map(foundCartItems.map(row => [row.id, row]));
+    const rows = body.items.map(item => cartItemsById.get(item.cartItemId));
+
+    const productIds = [...new Set(rows.map(row => row.product_id))].sort((a, b) => a - b);
+    const [foundProducts] = await connection.query(
+      `SELECT id, name, brand, thumbnail_url, price, status FROM products
+       WHERE id IN (${productIds.map(() => '?').join(',')}) ORDER BY id FOR UPDATE`,
+      productIds
+    );
+    const products = new Map(foundProducts.map(row => [row.id, row]));
     const changes = [];
     let total = 0;
     for (let i = 0; i < rows.length; i++) {
@@ -78,13 +87,15 @@ async function create(userId, body) {
        is_self_gift, total_price, payment_status, idempotency_key, request_hash)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?)`,
     [userId, body.receiverId, sender.nickname, receiver.nickname, body.message, body.isSelfGift, total, body.key, body.hash]);
+    const units = [];
     for (const row of rows) {
       for (let count = 0; count < row.quantity; count++) {
-        await insertOrderWithGift(connection, { userId, senderNickname: sender.nickname,
+        units.push({ userId, senderNickname: sender.nickname,
           receiverId: body.receiverId, receiverNickname: receiver.nickname, product: products.get(row.product_id),
           message: body.message, isSelfGift: body.isSelfGift, orderGroupId: result.insertId });
       }
     }
+    await insertOrdersWithGiftsBatch(connection, units);
     const ids = rows.map(row => row.id);
     await connection.query(`DELETE FROM cart_items WHERE user_id = ? AND id IN (${ids.map(() => '?').join(',')})`, [userId, ...ids]);
     const [groups] = await connection.query('SELECT * FROM order_groups WHERE id = ?', [result.insertId]);
