@@ -26,19 +26,21 @@ async function createOrder(req, res) {
 
     const finalReceiverId = isSelfGift ? userId : receiverId;
 
-    const product = await productModel.getProductById(productId);
+    // 서로 결과에 의존하지 않는 조회라 한 번에 기다린다. 우선순위(상품 → 수신자 →
+    // 발신자)는 아래 체크 순서로 그대로 유지한다.
+    const [product, receiver, sender] = await Promise.all([
+      productModel.getProductById(productId),
+      userModel.getUserById(finalReceiverId),
+      // 탈퇴/닉네임 변경 이후에도 주문 당시 닉네임을 그대로 보여주기 위한 스냅샷
+      userModel.getUserById(userId)
+    ]);
+
     if (!product) {
       return sendError(res, ERROR.PRODUCT_NOT_FOUND);
     }
-
-    const receiver = await userModel.getUserById(finalReceiverId);
     if (!receiver) {
       return sendError(res, ERROR.RECEIVER_NOT_FOUND);
     }
-
-    // 탈퇴/닉네임 변경 이후에도 주문 당시 닉네임을 그대로 보여주기 위한 스냅샷
-    const sender = await userModel.getUserById(userId);
-
     if (!sender) return sendError(res, ERROR.UNAUTHORIZED);
     const barcode = generateBarcode();
 
@@ -82,8 +84,11 @@ async function getOrderDetail(req, res) {
     }
 
     // 과거 주문 이력이므로, 이후 상품이 숨김/단종 처리되어도 상품 정보가 사라지면 안 된다.
-    const product = await productModel.getProductByIdIgnoringStatus(order.product_id);
-    const gift = await orderModel.getGiftByOrderId(order.id);
+    // 서로 결과에 의존하지 않는 조회라 한 번에 기다린다.
+    const [product, gift] = await Promise.all([
+      productModel.getProductByIdIgnoringStatus(order.product_id),
+      orderModel.getGiftByOrderId(order.id)
+    ]);
 
     return sendSuccess(res, {
       ...SUCCESS.ORDER_DETAIL_SUCCESS,

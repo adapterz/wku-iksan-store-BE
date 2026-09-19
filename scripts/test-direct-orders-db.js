@@ -95,7 +95,9 @@ async function main() {
   check(cross.every(r => r.status === 201), 'cross gifts lock in consistent order');
 
   const beforeFailure = await counts();
-  await admin.query("CREATE TRIGGER fail_second_direct_gift BEFORE INSERT ON gifts FOR EACH ROW BEGIN IF (SELECT COUNT(*) FROM orders WHERE order_group_id=(SELECT order_group_id FROM orders WHERE id=NEW.order_id))=2 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture'; END IF; END");
+  // 주문은 이미 배치로 모두 저장되어 있다. 같은 그룹의 첫 선물이 저장된 뒤
+  // 두 번째 선물을 넣을 때 실패시켜, 배치 일부 처리 후 전체 롤백을 검증한다.
+  await admin.query("CREATE TRIGGER fail_second_direct_gift BEFORE INSERT ON gifts FOR EACH ROW BEGIN IF (SELECT COUNT(*) FROM gifts g JOIN orders o ON o.id=g.order_id WHERE o.order_group_id=(SELECT order_group_id FROM orders WHERE id=NEW.order_id))=1 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture'; END IF; END");
   check((await direct(body, 'rollback-request-1234')).status === 500, 'second gift insert failure');
   equal(await counts(), beforeFailure);
   await admin.query('DROP TRIGGER fail_second_direct_gift');
@@ -108,7 +110,8 @@ async function main() {
     let calls = 0;
     crypto.randomInt = () => ++calls === 1 ? Number(existingCode.barcode) : randomBase + calls;
     const collision = await direct(body, 'collision-request-123');
-    check(collision.status === 201 && calls === 4, 'barcode collision retries each unit');
+    // 첫 3개 배치가 충돌하면 전체 3개를 다시 생성한다(개별 행 재시도가 아님).
+    check(collision.status === 201 && calls === body.quantity * 2, 'barcode collision retries whole batch');
     const beforeExhaustion = await counts();
     crypto.randomInt = () => Number(existingCode.barcode);
     check((await direct(body, 'exhaustion-request-12')).status === 500, 'barcode retry bounded');

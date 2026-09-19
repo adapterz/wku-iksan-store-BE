@@ -20,15 +20,21 @@ beforeEach(() => {
       return [{ insertId: 10 }];
     }
     if (sql.includes('INSERT INTO orders')) {
-      const orderId = state.rows.length + 100;
-      state.rows.push({ order_id: orderId, product_id: args[2], total_price: args[5], product_name_snapshot: args[9], brand_snapshot: args[10], thumbnail_url_snapshot: args[11] });
-      return [{ insertId: orderId }];
+      for (let i = 0; i < args.length; i += 12) {
+        const orderId = state.rows.length + 100;
+        state.rows.push({ order_id: orderId, product_id: args[i + 2], total_price: args[i + 5], product_name_snapshot: args[i + 9], brand_snapshot: args[i + 10], thumbnail_url_snapshot: args[i + 11] });
+      }
+      return [{}];
     }
+    if (sql.includes('SELECT id FROM orders WHERE order_group_id')) return [state.rows.map(row => ({ id: row.order_id }))];
     if (sql.includes('INSERT INTO gifts')) {
-      if (state.failGift && state.rows.length === 2) throw Object.assign(new Error('fixture'), { code: 'ER_SIGNAL_EXCEPTION' });
-      const row = state.rows.find(row => row.order_id === args[0]); row.gift_id = args[0] + 100;
-      return [{ insertId: row.gift_id }];
+      if (state.failGift) throw Object.assign(new Error('fixture'), { code: 'ER_SIGNAL_EXCEPTION' });
+      for (let i = 0; i < args.length; i += 2) {
+        const row = state.rows.find(row => row.order_id === args[i]); row.gift_id = args[i] + 100;
+      }
+      return [{}];
     }
+    if (sql.includes('SELECT id, order_id FROM gifts')) return [state.rows.map(row => ({ id: row.gift_id, order_id: row.order_id }))];
     if (sql.includes('FROM orders o JOIN gifts')) return [state.rows];
     if (sql.includes('SELECT * FROM order_groups')) return [[state.group]];
     throw new Error('Unexpected SQL: ' + sql);

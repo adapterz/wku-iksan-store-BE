@@ -2,6 +2,7 @@ const giftModel = require('../db/models/giftModel');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { validateGiftNotificationInput } = require('../validators/giftNotificationValidator');
+const { parsePositiveInteger } = require('../validators/commonValidator');
 
 async function getUnnotifiedGifts(req, res) {
   try {
@@ -79,7 +80,8 @@ async function getGifts(req, res) {
 
 async function getGiftDetail(req, res) {
   try {
-    const giftId = req.params.id;
+    const giftId = parsePositiveInteger(req.params.id, { allowString: true });
+    if (giftId === null) return sendError(res, ERROR.INVALID_GIFT_ID);
     const userId = req.session.userId;
 
     const gift = await giftModel.getGiftDetailById(giftId);
@@ -117,7 +119,8 @@ async function getGiftDetail(req, res) {
 
 async function useGift(req, res) {
   try {
-    const giftId = req.params.id;
+    const giftId = parsePositiveInteger(req.params.id, { allowString: true });
+    if (giftId === null) return sendError(res, ERROR.INVALID_GIFT_ID);
     const userId = req.session.userId;
 
     const gift = await giftModel.getGiftDetailById(giftId);

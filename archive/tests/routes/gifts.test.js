@@ -101,6 +101,16 @@ describe('GET /api/gifts/:id', () => {
     expect(giftModel.getGiftDetailById).not.toHaveBeenCalled();
   });
 
+  test('숫자가 아닌 ID는 400 INVALID_GIFT_ID', async () => {
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).get('/api/gifts/nope');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_GIFT_ID');
+    expect(giftModel.getGiftDetailById).not.toHaveBeenCalled();
+  });
+
   test('선물이 없으면 404 GIFT_NOT_FOUND', async () => {
     giftModel.getGiftDetailById.mockResolvedValue(null);
     const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
@@ -168,6 +178,16 @@ describe('PATCH /api/gifts/:id/use', () => {
 
     expect(res.status).toBe(401);
     expect(res.body.code).toBe('UNAUTHORIZED');
+    expect(giftModel.getGiftDetailById).not.toHaveBeenCalled();
+  });
+
+  test('숫자가 아닌 ID는 400 INVALID_GIFT_ID', async () => {
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+
+    const res = await request(app).patch('/api/gifts/nope/use');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_GIFT_ID');
     expect(giftModel.getGiftDetailById).not.toHaveBeenCalled();
   });
 
