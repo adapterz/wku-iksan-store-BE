@@ -37,6 +37,9 @@ CREATE TABLE products (
     CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 );
 
+CREATE INDEX idx_products_status ON products (status);
+CREATE INDEX idx_products_brand ON products (brand);
+
 CREATE TABLE wishlists (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id         BIGINT NOT NULL,
@@ -212,3 +215,6 @@ CREATE TABLE user_sanctions (
 
 CREATE INDEX idx_sanctions_user_created
     ON user_sanctions (user_id, created_at, id);
+
+CREATE INDEX idx_sanctions_type_status
+    ON user_sanctions (type, status);
