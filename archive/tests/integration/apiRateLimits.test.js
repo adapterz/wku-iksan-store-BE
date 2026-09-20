@@ -3,7 +3,7 @@ const request = require('supertest');
 const { createApiRateLimiters } = require('../../../middlewares/apiRateLimits');
 
 function fixture(env = {}) {
-  const limits = createApiRateLimiters({ RATE_LIMIT_LOGIN_MAX:'2', RATE_LIMIT_SIGNUP_MAX:'2', RATE_LIMIT_INQUIRY_MAX:'2', RATE_LIMIT_REPORT_MAX:'2', ...env });
+  const limits = createApiRateLimiters({ RATE_LIMIT_LOGIN_MAX:'2', RATE_LIMIT_SIGNUP_MAX:'2', RATE_LIMIT_INQUIRY_MAX:'2', RATE_LIMIT_REPORT_MAX:'2', RATE_LIMIT_SEARCH_MAX:'2', ...env });
   const app = express();
   // 이 테스트 앱에서는 supertest를 한 단계의 신뢰 프록시로 모의한다.
   app.set('trust proxy',1);
@@ -16,6 +16,7 @@ function fixture(env = {}) {
   app.post('/signup',limits.signup,(req,res)=>res.sendStatus(201));
   app.post('/inquiry',limits.inquiry,(req,res)=>res.sendStatus(201));
   app.post('/report/:id',limits.report,(req,res)=>res.sendStatus(201));
+  app.get('/search',limits.search,(req,res)=>res.sendStatus(200));
   app.post('/logout',(req,res)=>res.sendStatus(200));
   return app;
 }
@@ -49,6 +50,12 @@ test('회원별 제한: IP/리뷰/본문 userId 변경은 우회 불가, 다른 
   expect((await request(app).post('/report/99').set('X-Test-User','1').set('X-Forwarded-For','203.0.113.9').send({userId:2})).status).toBe(429);
   expect((await request(app).post('/report/99').set('X-Test-User','2')).status).toBe(201);
   expect((await request(app).post('/inquiry').set('X-Test-User','1')).status).toBe(201);
+});
+test('닉네임 검색 회원별 제한: 회원용/관리자용이 같은 카운터를 공유하고 다른 회원과는 독립',async()=>{
+  const app=fixture();
+  for(let i=0;i<2;i++)expect((await request(app).get('/search').set('X-Test-User','1')).status).toBe(200);
+  expect((await request(app).get('/search').set('X-Test-User','1')).status).toBe(429);
+  expect((await request(app).get('/search').set('X-Test-User','2')).status).toBe(200);
 });
 test('신뢰 프록시 없는 개발 환경은 X-Forwarded-For로 카운터를 변경할 수 없음',async()=>{
   const app=fixture(); app.set('trust proxy',false);

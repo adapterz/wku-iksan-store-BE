@@ -4,9 +4,10 @@ const requireLogin = require('../middlewares/requireLogin');
 const reviewCache = require('../middlewares/reviewCache');
 const usersController = require('../controllers/usersController');
 const mySanctionsController = require('../controllers/mySanctionsController');
+const limits = require('../middlewares/apiRateLimits');
 
 // GET /api/users/search?nickname={nickname}
-router.get('/search', requireLogin, usersController.searchUser);
+router.get('/search', requireLogin, limits.search, usersController.searchUser);
 
 router.patch('/me/nickname', requireLogin, usersController.updateNickname);
 router.patch('/me/email', requireLogin, usersController.updateEmail);

@@ -8,8 +8,12 @@
 | POST /api/auth/signup | IP | 1시간 | 30 | RATE_LIMIT_SIGNUP_MAX |
 | POST /api/inquiries | 인증된 회원 ID | 10분 | 60 | RATE_LIMIT_INQUIRY_MAX |
 | POST /api/reviews/:id/reports | 인증된 회원 ID, 리뷰 ID와 무관 | 10분 | 60 | RATE_LIMIT_REPORT_MAX |
+| GET /api/users/search | 인증된 회원 ID | 10분 | 60 | RATE_LIMIT_SEARCH_MAX |
+| GET /api/admin/users | 인증된 회원 ID | 10분 | 60 | RATE_LIMIT_SEARCH_MAX |
 
 확정 운영 정책이 아닌 여유 있는 **초기값**이다. 정상적인 사용/공용 네트워크 영향을 검토한 뒤 담당자가 조정한다. 성공과 실패 요청 모두 집계한다. 이메일만으로 계정을 잠그지 않으므로 타인의 이메일을 반복 입력해 계정을 전역 차단하지 않는다. 로그인·가입 카운터와 문의·신고 카운터는 서로 독립이다.
+
+닉네임 검색 두 엔드포인트는 #121 당시에는 "조회 API"라는 이유로 범위에서 제외됐으나, 로그인만 하면 제한 없이 닉네임 존재 여부를 계속 조회할 수 있는 열거(enumeration) 통로였다. 닉네임 자체는 비밀값이 아니지만(리뷰 작성자 등으로 이미 노출), 무제한 조회 오라클을 남겨두지 않기 위해 이번에 추가한다. 회원/관리자 검색은 서로 다른 라우트이지만 같은 RATE_LIMIT_SEARCH_MAX 카운터 설정을 공유한다(회원별 독립 집계).
 
 회원 키는 requireLogin 인증 이후 서버 세션 userId로 결정하며 body/header의 userId를 신뢰하지 않는다. 재로그인/다른 기기에서도 같은 회원의 등록 횟수는 합산한다. 문의/신고의 비로그인 요청은 기존 401이며 회원 카운터를 소모하지 않는다. 조회/수정/삭제, 로그아웃, 비밀번호 변경 API에는 이번 제한을 추가하지 않는다.
 
