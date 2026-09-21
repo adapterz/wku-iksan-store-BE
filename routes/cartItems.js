@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const controller = require('../controllers/cartController');
+router.use(require('../middlewares/reviewCache'));
+router.use(require('../middlewares/requireLogin'));
+router.get('/', controller.list);
+router.post('/', controller.add);
+router.post('/remove', controller.removeMany);
+router.patch('/:id', controller.update);
+router.delete('/:id', controller.removeOne);
+module.exports = router;

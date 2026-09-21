@@ -1,5 +1,6 @@
 const reviewModel = require('../db/models/reviewModel');
 const productModel = require('../db/models/productModel');
+const sanctionModel = require('../db/models/sanctionModel');
 const { parsePositiveInteger } = require('../validators/commonValidator');
 const { validateReviewBody, validateReviewQuery } = require('../validators/reviewValidator');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
@@ -29,11 +30,23 @@ function meta({ page, limit }, totalCount) {
 }
 
 function failure(res, error) {
+  if (error.sanctionError === 'SUSPENDED_FROM_REVIEWS') return sendError(res, ERROR.SUSPENDED_FROM_REVIEWS);
   if (error.reviewError && ERROR[error.reviewError]) return sendError(res, ERROR[error.reviewError]);
   if (error.code === 'ER_DUP_ENTRY') return sendError(res, ERROR.REVIEW_ALREADY_EXISTS);
   // DB 오류 객체에는 리뷰 본문을 포함한 SQL이 들어갈 수 있어 전체 객체는 기록하지 않는다.
   console.error('Review operation failed:', { code: error.code || 'UNKNOWN' });
   return sendError(res);
+}
+
+async function assertNotSuspendedFromReviews(userId) {
+  // 합의한 사전 확인 방식: 기존 리뷰 트랜잭션/잠금 순서는 변경하지 않는다.
+  // 확인 직후 부여된 정지는 이미 진행 중인 요청을 소급 차단하지 않는다.
+  // 조회 오류는 전파하여 500으로 처리하며 정상 사용자로 통과시키지 않는다.
+  if (await sanctionModel.getActiveSuspension(userId)) {
+    const error = new Error('SUSPENDED_FROM_REVIEWS');
+    error.sanctionError = 'SUSPENDED_FROM_REVIEWS';
+    throw error;
+  }
 }
 
 async function getProductReviews(req, res) {
@@ -59,6 +72,7 @@ async function createReview(req, res) {
   const body = validateReviewBody(req.body);
   if (body.errorCode) return sendError(res, ERROR[body.errorCode]);
   try {
+    await assertNotSuspendedFromReviews(req.session.userId);
     const row = await reviewModel.createReview(req.session.userId, body.value);
     return sendSuccess(res, { ...SUCCESS.REVIEW_CREATE_SUCCESS, data: mapReview(row, req.session.userId, { mine: true }) });
   } catch (error) { return failure(res, error); }
@@ -94,6 +108,7 @@ async function updateReview(req, res) {
   const body = validateReviewBody(req.body, { partial: true });
   if (body.errorCode) return sendError(res, ERROR[body.errorCode]);
   try {
+    await assertNotSuspendedFromReviews(req.session.userId);
     const row = await reviewModel.updateReview(id, req.session.userId, body.value);
     return sendSuccess(res, { ...SUCCESS.REVIEW_UPDATE_SUCCESS, data: mapReview(row, req.session.userId, { mine: true }) });
   } catch (error) { return failure(res, error); }

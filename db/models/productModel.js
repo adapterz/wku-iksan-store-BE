@@ -216,6 +216,12 @@ const getAllProductsForAdmin = async ({ status = null } = {}) => {
       p.brand,
       p.price,
       p.thumbnail_url,
+      p.description,
+      p.description_image_url,
+      p.valid_period,
+      p.usage_method,
+      p.exchange_location,
+      p.caution,
       p.category_id,
       c.name AS category_name,
       p.status

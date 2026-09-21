@@ -2,6 +2,7 @@ CREATE TABLE users (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     email           VARCHAR(255) NOT NULL,
     password        VARCHAR(255) NOT NULL,
+    auth_version    INT UNSIGNED NOT NULL DEFAULT 1,
     role            VARCHAR(20) NOT NULL DEFAULT 'user',
     nickname        VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -36,6 +37,9 @@ CREATE TABLE products (
     CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 );
 
+CREATE INDEX idx_products_status ON products (status);
+CREATE INDEX idx_products_brand ON products (brand);
+
 CREATE TABLE wishlists (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id         BIGINT NOT NULL,
@@ -45,6 +49,40 @@ CREATE TABLE wishlists (
     CONSTRAINT uq_wishlists_user_product UNIQUE (user_id, product_id),
     CONSTRAINT fk_wishlists_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_wishlists_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE cart_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    quantity INT NOT NULL,
+    version INT NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_cart_user_product UNIQUE (user_id, product_id),
+    CONSTRAINT chk_cart_quantity CHECK (quantity BETWEEN 1 AND 10),
+    CONSTRAINT chk_cart_version CHECK (version > 0),
+    CONSTRAINT fk_cart_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cart_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE order_groups (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT,
+    receiver_id BIGINT,
+    sender_nickname_snapshot VARCHAR(50) NOT NULL,
+    receiver_nickname_snapshot VARCHAR(50) NOT NULL,
+    message VARCHAR(500),
+    is_self_gift BOOLEAN NOT NULL,
+    total_price BIGINT NOT NULL,
+    payment_status VARCHAR(20) NOT NULL,
+    idempotency_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    request_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_group_user_key UNIQUE (user_id, idempotency_key),
+    CONSTRAINT chk_group_price CHECK (total_price > 0),
+    CONSTRAINT fk_group_sender FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_group_receiver FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE orders (
@@ -58,8 +96,14 @@ CREATE TABLE orders (
     message                      VARCHAR(500),
     is_self_gift                 BOOLEAN NOT NULL,
     payment_status               VARCHAR(20) NOT NULL,
+    order_group_id               BIGINT NULL,
+    product_name_snapshot        VARCHAR(255) NULL,
+    brand_snapshot               VARCHAR(255) NULL,
+    thumbnail_url_snapshot        VARCHAR(500) NULL,
     created_at                   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
+    INDEX idx_orders_group (order_group_id, id),
+    CONSTRAINT fk_orders_group FOREIGN KEY (order_group_id) REFERENCES order_groups(id) ON DELETE RESTRICT,
     CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_orders_product FOREIGN KEY (product_id) REFERENCES products(id),
     CONSTRAINT fk_orders_receiver FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE SET NULL
@@ -71,9 +115,11 @@ CREATE TABLE gifts (
     barcode         VARCHAR(50) NOT NULL,
     status          VARCHAR(20) NOT NULL,
     used_at         DATETIME,
+    notified_at     DATETIME NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_gifts_order_id UNIQUE (order_id),
+    CONSTRAINT uq_gifts_barcode UNIQUE (barcode),
     CONSTRAINT fk_gifts_order FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
@@ -106,3 +152,69 @@ CREATE INDEX idx_reviews_product_status_created
 
 CREATE INDEX idx_reviews_user_created
     ON reviews (user_id, created_at, id);
+
+CREATE TABLE reports (
+    id                         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    review_id                  BIGINT,
+    reporter_id                BIGINT,
+    review_author_id_snapshot  BIGINT,
+    review_content_snapshot    VARCHAR(1000) NOT NULL,
+    review_rating_snapshot     TINYINT NOT NULL,
+    reason                     VARCHAR(500) NOT NULL,
+    status                     VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at                 DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_reports_review_reporter UNIQUE (review_id, reporter_id),
+    CONSTRAINT fk_reports_review
+        FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE SET NULL,
+    CONSTRAINT fk_reports_reporter
+        FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_reports_author_snapshot
+        FOREIGN KEY (review_author_id_snapshot) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_reports_status_created
+    ON reports (status, created_at, id);
+
+CREATE TABLE inquiries (
+    id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id               BIGINT NOT NULL,
+    category              VARCHAR(20) NOT NULL DEFAULT 'general',
+    content               VARCHAR(1000) NOT NULL,
+    admin_reply           VARCHAR(1000),
+    resolved_sanction_id  BIGINT,
+    status                VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_inquiries_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_inquiries_status_created
+    ON inquiries (status, created_at, id);
+
+CREATE INDEX idx_inquiries_user_created
+    ON inquiries (user_id, created_at, id);
+
+CREATE TABLE user_sanctions (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
+    type            VARCHAR(20) NOT NULL,
+    reason          VARCHAR(500) NOT NULL,
+    issued_by       BIGINT,
+    ends_at         DATETIME,
+    status          VARCHAR(20) NOT NULL DEFAULT 'active',
+    notified_at     DATETIME NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_sanctions_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_sanctions_admin
+        FOREIGN KEY (issued_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_sanctions_user_created
+    ON user_sanctions (user_id, created_at, id);
+
+CREATE INDEX idx_sanctions_type_status
+    ON user_sanctions (type, status);

@@ -8,6 +8,8 @@ const reviewCache = require('../middlewares/reviewCache');
 router.use(reviewCache);
 
 router.get('/', requireLogin, giftsController.getGifts);
+router.get('/unnotified', requireLogin, giftsController.getUnnotifiedGifts);
+router.patch('/notify', requireLogin, giftsController.notifyGifts);
 router.get('/:id', requireLogin, giftsController.getGiftDetail);
 router.patch('/:id/use', requireLogin, giftsController.useGift);
 

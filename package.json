@@ -7,14 +7,20 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "test": "jest",
-    "test:reviews:db": "node scripts/test-reviews-db.js"
+    "test:session:db": "node scripts/test-session-invalidation-db.js",
+    "test:reviews:db": "node scripts/test-reviews-db.js",
+    "test:cart:db": "node scripts/test-cart-db.js",
+    "test:direct-orders:db": "node scripts/test-direct-orders-db.js",
+    "test:gift-notifications:db": "node scripts/test-gift-notifications-db.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
+    "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
     "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
     "mysql2": "^3.22.6"
   },
   "devDependencies": {

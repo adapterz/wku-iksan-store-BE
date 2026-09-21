@@ -1,6 +1,7 @@
 const orderModel = require('../db/models/orderModel');
 const productModel = require('../db/models/productModel');
 const userModel = require('../db/models/userModel');
+const { generateBarcode } = require('../db/models/orderWriter');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 
@@ -25,24 +26,23 @@ async function createOrder(req, res) {
 
     const finalReceiverId = isSelfGift ? userId : receiverId;
 
-    const product = await productModel.getProductById(productId);
+    // 서로 결과에 의존하지 않는 조회라 한 번에 기다린다. 우선순위(상품 → 수신자 →
+    // 발신자)는 아래 체크 순서로 그대로 유지한다.
+    const [product, receiver, sender] = await Promise.all([
+      productModel.getProductById(productId),
+      userModel.getUserById(finalReceiverId),
+      // 탈퇴/닉네임 변경 이후에도 주문 당시 닉네임을 그대로 보여주기 위한 스냅샷
+      userModel.getUserById(userId)
+    ]);
+
     if (!product) {
       return sendError(res, ERROR.PRODUCT_NOT_FOUND);
     }
-
-    const receiver = await userModel.getUserById(finalReceiverId);
     if (!receiver) {
       return sendError(res, ERROR.RECEIVER_NOT_FOUND);
     }
-
-    // 탈퇴/닉네임 변경 이후에도 주문 당시 닉네임을 그대로 보여주기 위한 스냅샷
-    const sender = await userModel.getUserById(userId);
-
-    // 12자리 난수 생성 (바코드)
-    let barcode = '';
-    for (let i = 0; i < 12; i++) {
-      barcode += Math.floor(Math.random() * 10).toString();
-    }
+    if (!sender) return sendError(res, ERROR.UNAUTHORIZED);
+    const barcode = generateBarcode();
 
     const finalTotalPrice = product.price; // 서버에서 직접 상품 가격 조회
     const { orderId, giftId } = await orderModel.createOrderWithGift(
@@ -63,7 +63,8 @@ async function createOrder(req, res) {
     });
 
   } catch (error) {
-    console.error('Order creation error:', error);
+    if (error.cartError && ERROR[error.cartError]) return sendError(res, ERROR[error.cartError]);
+    console.error('Order creation error:', { code: error.code || 'UNKNOWN' });
     return sendError(res);
   }
 }
@@ -83,8 +84,11 @@ async function getOrderDetail(req, res) {
     }
 
     // 과거 주문 이력이므로, 이후 상품이 숨김/단종 처리되어도 상품 정보가 사라지면 안 된다.
-    const product = await productModel.getProductByIdIgnoringStatus(order.product_id);
-    const gift = await orderModel.getGiftByOrderId(order.id);
+    // 서로 결과에 의존하지 않는 조회라 한 번에 기다린다.
+    const [product, gift] = await Promise.all([
+      productModel.getProductByIdIgnoringStatus(order.product_id),
+      orderModel.getGiftByOrderId(order.id)
+    ]);
 
     return sendSuccess(res, {
       ...SUCCESS.ORDER_DETAIL_SUCCESS,
@@ -92,9 +96,10 @@ async function getOrderDetail(req, res) {
         orderId: order.id,
         product: product ? {
           id: product.id,
-          name: product.name,
-          brand: product.brand,
-          thumbnailUrl: product.thumbnail_url
+          name: order.product_name_snapshot ?? product.name,
+          brand: order.brand_snapshot ?? product.brand,
+          thumbnailUrl: order.product_name_snapshot != null ? order.thumbnail_url_snapshot : product.thumbnail_url,
+          validPeriod: product.valid_period
         } : null,
         totalPrice: order.total_price,
         message: order.message,

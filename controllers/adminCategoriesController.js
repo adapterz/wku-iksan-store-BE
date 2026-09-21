@@ -1,4 +1,7 @@
 const categoryModel = require('../db/models/categoryModel');
+// 상품 목록 API의 categoryName은 categories 테이블과 JOIN한 값을 캐싱한 것이라,
+// 카테고리명 변경 직후 무효화하지 않으면 캐시 TTL(5분) 동안 옛 이름이 계속 노출된다.
+const { invalidateProductListCache } = require('./productsController');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
 const { parsePositiveInteger } = require('../validators/commonValidator');
@@ -47,6 +50,7 @@ async function updateCategory(req, res) {
     if (!category) {
       return sendError(res, ERROR.CATEGORY_NOT_FOUND);
     }
+    await invalidateProductListCache();
 
     return sendSuccess(res, {
       ...SUCCESS.ADMIN_CATEGORY_UPDATE_SUCCESS,

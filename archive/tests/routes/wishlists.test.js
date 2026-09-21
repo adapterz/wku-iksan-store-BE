@@ -3,6 +3,7 @@ const { createTestApp } = require('../helpers/testApp');
 
 jest.mock('../../../db/models/wishlistModel');
 jest.mock('../../../db/models/productModel');
+jest.mock('../../../db/redisClient');
 const wishlistModel = require('../../../db/models/wishlistModel');
 const productModel = require('../../../db/models/productModel');
 const wishlistsRouter = require('../../../routes/wishlists');
