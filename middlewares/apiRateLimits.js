@@ -26,7 +26,8 @@ function createApiRateLimiters(env = process.env) {
     login: make('RATE_LIMIT_LOGIN_MAX', 15 * 60 * 1000, 100),
     signup: make('RATE_LIMIT_SIGNUP_MAX', 60 * 60 * 1000, 30),
     inquiry: make('RATE_LIMIT_INQUIRY_MAX', 10 * 60 * 1000, 60, true),
-    report: make('RATE_LIMIT_REPORT_MAX', 10 * 60 * 1000, 60, true)
+    report: make('RATE_LIMIT_REPORT_MAX', 10 * 60 * 1000, 60, true),
+    search: make('RATE_LIMIT_SEARCH_MAX', 10 * 60 * 1000, 60, true)
   };
 }
 
