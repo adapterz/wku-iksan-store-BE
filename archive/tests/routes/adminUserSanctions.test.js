@@ -39,6 +39,17 @@ describe('POST /api/admin/users/:id/sanctions', () => {
     expect(sanctionModel.createSanction).not.toHaveBeenCalled();
   });
 
+  test('관리자가 자기 자신을 제재 대상으로 지정하면 403 CANNOT_SANCTION_SELF', async () => {
+    mockAdminAndTarget();
+    const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
+
+    const res = await request(app).post('/api/admin/users/1/sanctions').send({ type: 'warning', reason: '사유' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('CANNOT_SANCTION_SELF');
+    expect(sanctionModel.createSanction).not.toHaveBeenCalled();
+  });
+
   test('type이 없으면 400 REQUIRED_SANCTION_TYPE', async () => {
     mockAdminAndTarget();
     const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });

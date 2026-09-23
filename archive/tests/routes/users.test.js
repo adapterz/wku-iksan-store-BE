@@ -215,17 +215,17 @@ describe('PATCH /api/users/me/email', () => {
     expect(res.body.code).toBe('EMAIL_ALREADY_EXISTS');
   });
 
-  test('본인의 기존 이메일로 재요청하면 정상 처리', async () => {
+  test('본인의 기존 이메일로 재요청하면 409 EMAIL_SAME_AS_CURRENT', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, email: 'me@test.com', password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
     userModel.getUserByEmail.mockResolvedValue({ id: 1, email: 'me@test.com' });
-    userModel.updateUserEmail.mockResolvedValue({ id: 1, email: 'me@test.com' });
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 
     const res = await request(app).patch('/api/users/me/email').send({ email: 'me@test.com', password: 'pw' });
 
-    expect(res.status).toBe(200);
-    expect(res.body.code).toBe('EMAIL_UPDATE_SUCCESS');
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('EMAIL_SAME_AS_CURRENT');
+    expect(userModel.updateUserEmail).not.toHaveBeenCalled();
   });
 
   test('정상 변경되면 200 EMAIL_UPDATE_SUCCESS와 변경된 이메일 반환', async () => {
@@ -320,10 +320,25 @@ describe('PATCH /api/users/me/password', () => {
     expect(userModel.updateUserPassword).not.toHaveBeenCalled();
   });
 
+  test('새 비밀번호가 현재 비밀번호와 같으면 409 PASSWORD_SAME_AS_CURRENT', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed', auth_version: 1 });
+    bcrypt.compare.mockResolvedValue(true); // 현재 비밀번호 확인, 동일 여부 확인 둘 다 일치
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app)
+      .patch('/api/users/me/password')
+      .send({ currentPassword: 'oldPw123', newPassword: 'oldPw123' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('PASSWORD_SAME_AS_CURRENT');
+    expect(userModel.updateUserPassword).not.toHaveBeenCalled();
+  });
+
   test('정상 변경되면 200 PASSWORD_UPDATE_SUCCESS', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed', auth_version: 1 });
     userModel.updateUserPassword.mockResolvedValue(true);
-    bcrypt.compare.mockResolvedValue(true);
+    // 현재 비밀번호 확인은 일치, "새 비밀번호가 현재와 같은지" 확인은 불일치여야 정상 변경 흐름을 탄다.
+    bcrypt.compare.mockImplementation(async (plain) => plain === 'oldPw1');
     bcrypt.hash.mockResolvedValue('new-hashed');
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 

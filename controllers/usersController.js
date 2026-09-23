@@ -128,7 +128,10 @@ async function updateEmail(req, res) {
     }
 
     const existingEmail = await userModel.getUserByEmail(emailValidation.value);
-    if (existingEmail && existingEmail.id !== userId) {
+    if (existingEmail) {
+      if (existingEmail.id === userId) {
+        return sendError(res, ERROR.EMAIL_SAME_AS_CURRENT);
+      }
       return sendError(res, ERROR.EMAIL_ALREADY_EXISTS);
     }
 
@@ -185,6 +188,13 @@ async function updatePassword(req, res) {
     const isMatch = await bcrypt.compare(currentPasswordValidation.value, user.password);
     if (!isMatch) {
       return sendError(res, ERROR.INVALID_PASSWORD);
+    }
+
+    // 값이 같아도 "변경 성공" 처리하면 auth_version이 올라가 다른 기기 세션이
+    // 전부 로그아웃된다(#138 1-3). 아무것도 안 바뀌었는데 그 부작용만 발생하지 않게 막는다.
+    const isSameAsCurrent = await bcrypt.compare(newPasswordValidation.value, user.password);
+    if (isSameAsCurrent) {
+      return sendError(res, ERROR.PASSWORD_SAME_AS_CURRENT);
     }
 
     const hashedPassword = await bcrypt.hash(newPasswordValidation.value, 10);
