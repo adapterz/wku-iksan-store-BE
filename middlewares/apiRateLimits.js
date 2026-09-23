@@ -12,7 +12,7 @@ function readLimit(env, name, fallback) {
 }
 
 function createApiRateLimiters(env = process.env) {
-  const make = (name, windowMs, fallback, account = false) => rateLimit({
+  const make = (name, windowMs, fallback, account = false, extra = {}) => rateLimit({
     windowMs,
     limit: readLimit(env, name, fallback),
     standardHeaders: 'draft-7',
@@ -20,14 +20,19 @@ function createApiRateLimiters(env = process.env) {
     // 인증 이후에만 회원 키 사용. body의 userId, 이메일, session ID는 키로 사용하지 않는다.
     ...(account ? { keyGenerator: req => req.session?.userId
       ? `user:${req.session.userId}` : `ip:${ipKeyGenerator(req.ip)}` } : {}),
-    handler: (req, res) => sendError(res, ERROR.TOO_MANY_REQUESTS)
+    handler: (req, res) => sendError(res, ERROR.TOO_MANY_REQUESTS),
+    ...extra
   });
   return {
     login: make('RATE_LIMIT_LOGIN_MAX', 15 * 60 * 1000, 100),
     signup: make('RATE_LIMIT_SIGNUP_MAX', 60 * 60 * 1000, 30),
     inquiry: make('RATE_LIMIT_INQUIRY_MAX', 10 * 60 * 1000, 60, true),
     report: make('RATE_LIMIT_REPORT_MAX', 10 * 60 * 1000, 60, true),
-    search: make('RATE_LIMIT_SEARCH_MAX', 10 * 60 * 1000, 60, true)
+    search: make('RATE_LIMIT_SEARCH_MAX', 10 * 60 * 1000, 60, true),
+    // 닉네임 검색(search)과 별개 카운터. keyword 없는 일반 상품 목록 조회는 제한하지 않는다.
+    productSearch: make('RATE_LIMIT_PRODUCT_SEARCH_MAX', 10 * 60 * 1000, 60, true, {
+      skip: req => !req.query.keyword
+    })
   };
 }
 
