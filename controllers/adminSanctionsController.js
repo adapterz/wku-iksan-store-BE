@@ -23,9 +23,13 @@ function meta({ page, limit }, totalCount) {
 }
 
 // POST /api/admin/users/:id/sanctions
+// 관리자가 자기 자신을 제재 대상으로 지정하는 것을 막는다(역할 변경 쪽 자기 자신
+// 체크와 동일한 이유, #138 2-2).
 async function createSanction(req, res) {
   const userId = parsePositiveInteger(req.params.id, { allowString: true });
   if (userId === null) return sendError(res, ERROR.INVALID_USER_ID);
+
+  if (userId === req.session.userId) return sendError(res, ERROR.CANNOT_SANCTION_SELF);
 
   const bodyValidation = validateSanctionCreateInput(req.body);
   if (bodyValidation.errorCode) return sendError(res, ERROR[bodyValidation.errorCode]);
