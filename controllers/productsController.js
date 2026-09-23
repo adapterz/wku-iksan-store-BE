@@ -1,4 +1,5 @@
 const productModel = require('../db/models/productModel');
+const searchLogModel = require('../db/models/searchLogModel');
 const redis = require('../db/redisClient');
 const { sendSuccess, sendError } = require('../routes/api');
 const { SUCCESS, ERROR } = require('../constants/responseCodes');
@@ -8,6 +9,13 @@ const { parsePositiveInteger } = require('../validators/commonValidator');
 const RANKING_CACHE_TTL_MS = 5 * 60 * 1000;
 let rankingCache = null;
 let rankingRequestPromise = null;
+
+const POPULAR_KEYWORDS_CACHE_TTL_MS = 5 * 60 * 1000;
+const POPULAR_KEYWORDS_LIMIT = 10;
+const POPULAR_KEYWORDS_MIN_SEARCHERS = 3;
+const POPULAR_KEYWORDS_WINDOW_DAYS = 7;
+let popularKeywordsCache = null;
+let popularKeywordsRequestPromise = null;
 
 const PRODUCT_LIST_CACHE_TTL_SECONDS = 5 * 60;
 
@@ -68,6 +76,43 @@ function resetRankingCache() {
   rankingRequestPromise = null;
 }
 
+async function getPopularKeywordsSnapshot() {
+  const now = Date.now();
+
+  if (popularKeywordsCache && now < popularKeywordsCache.expiresAt) {
+    return popularKeywordsCache;
+  }
+
+  if (!popularKeywordsRequestPromise) {
+    popularKeywordsRequestPromise = (async () => {
+      const rows = await searchLogModel.getPopularKeywords({
+        limit: POPULAR_KEYWORDS_LIMIT,
+        minSearchers: POPULAR_KEYWORDS_MIN_SEARCHERS,
+        days: POPULAR_KEYWORDS_WINDOW_DAYS
+      });
+      const computedAtMs = Date.now();
+
+      popularKeywordsCache = {
+        data: rows.map((row, index) => ({ rank: index + 1, keyword: row.keyword })),
+        computedAt: new Date(computedAtMs).toISOString(),
+        expiresAt: computedAtMs + POPULAR_KEYWORDS_CACHE_TTL_MS
+      };
+
+      return popularKeywordsCache;
+    })().finally(() => {
+      popularKeywordsRequestPromise = null;
+    });
+  }
+
+  return popularKeywordsRequestPromise;
+}
+
+// 라우터 테스트가 서로의 캐시 상태에 영향을 주지 않도록 초기화한다.
+function resetPopularKeywordsCache() {
+  popularKeywordsCache = null;
+  popularKeywordsRequestPromise = null;
+}
+
 // 상품 목록 조회와 상품명·브랜드 검색, 카테고리 필터를 함께 처리한다.
 async function getProducts(req, res) {
   try {
@@ -83,9 +128,15 @@ async function getProducts(req, res) {
     try {
       const cached = await redis.get(cacheKey);
       if (cached) {
+        const products = JSON.parse(cached);
+
+        if (validation.value.keyword) {
+          searchLogModel.recordSearch(req, { keyword: validation.value.keyword, resultCount: products.length });
+        }
+
         return sendSuccess(res, {
           ...SUCCESS.PRODUCT_LIST_SUCCESS,
-          data: JSON.parse(cached)
+          data: products
         });
       }
     } catch (cacheError) {
@@ -104,6 +155,10 @@ async function getProducts(req, res) {
       categoryName: row.category_name,
       wishlistCount: row.wishlist_count
     }));
+
+    if (validation.value.keyword) {
+      searchLogModel.recordSearch(req, { keyword: validation.value.keyword, resultCount: products.length });
+    }
 
     try {
       await redis.set(cacheKey, JSON.stringify(products), 'EX', PRODUCT_LIST_CACHE_TTL_SECONDS);
@@ -148,6 +203,24 @@ async function getProductRanking(req, res) {
     });
   } catch (error) {
     console.error('Database query error (GET /api/products/ranking):', error);
+    return sendError(res);
+  }
+}
+
+// 공개 API: 최근 7일간 Top 10 인기 검색어
+async function getPopularKeywords(req, res) {
+  try {
+    const snapshot = await getPopularKeywordsSnapshot();
+
+    return sendSuccess(res, {
+      ...SUCCESS.POPULAR_KEYWORDS_SUCCESS,
+      data: snapshot.data,
+      meta: {
+        computedAt: snapshot.computedAt
+      }
+    });
+  } catch (error) {
+    console.error('Database query error (GET /api/products/popular-keywords):', error);
     return sendError(res);
   }
 }
@@ -199,7 +272,9 @@ async function getProductDetail(req, res) {
 module.exports = {
   getProducts,
   getProductRanking,
+  getPopularKeywords,
   getProductDetail,
   resetRankingCache,
+  resetPopularKeywordsCache,
   invalidateProductListCache
 };

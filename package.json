@@ -11,7 +11,8 @@
     "test:reviews:db": "node scripts/test-reviews-db.js",
     "test:cart:db": "node scripts/test-cart-db.js",
     "test:direct-orders:db": "node scripts/test-direct-orders-db.js",
-    "test:gift-notifications:db": "node scripts/test-gift-notifications-db.js"
+    "test:gift-notifications:db": "node scripts/test-gift-notifications-db.js",
+    "test:search-logs:db": "node scripts/test-search-logs-db.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
