@@ -1,3 +1,4 @@
+const { randomUUID } = require('node:crypto');
 const productModel = require('../db/models/productModel');
 const searchLogModel = require('../db/models/searchLogModel');
 const redis = require('../db/redisClient');
@@ -18,14 +19,29 @@ let popularKeywordsCache = null;
 let popularKeywordsRequestPromise = null;
 
 const PRODUCT_LIST_CACHE_TTL_SECONDS = 5 * 60;
+// 기존 products:list:* 키와 분리한다. 세대 키는 만료시키지 않고 데이터에만 TTL을 둔다.
+const PRODUCT_LIST_CACHE_PREFIX = 'products:list-cache:v2';
+const PRODUCT_LIST_GENERATION_KEY = `${PRODUCT_LIST_CACHE_PREFIX}:generation`;
+
+async function getProductListGeneration() {
+  const generation = await redis.get(PRODUCT_LIST_GENERATION_KEY);
+  if (generation) return generation;
+
+  // 재시작/eviction 후에도 과거 세대를 재사용하지 않는다. 동시 초기화 시에는
+  // NX 성공자의 값만 사용하고, 그 사이 무효화로 바뀌었다면 공유된 새 값을 읽는다.
+  const candidate = randomUUID();
+  const initialized = await redis.set(PRODUCT_LIST_GENERATION_KEY, candidate, 'NX');
+  if (initialized === 'OK') return candidate;
+  return await redis.get(PRODUCT_LIST_GENERATION_KEY) || null;
+}
 
 // 검색어·카테고리·브랜드 조합마다 결과가 다르므로, 조합 전체를 캐시 키에 반영한다.
 // keyword/brand는 구분자 문자(:, =) 제한이 없어 단순 문자열 연결로는 서로 다른
 // 조합이 같은 키로 충돌할 수 있어(예: keyword="a:categoryId=:brand=b" vs
 // keyword="a"+brand="b:categoryId=:brand=c"), JSON.stringify로 각 값의 경계를
 // 명확히 구분한다.
-function buildProductListCacheKey({ keyword, categoryId, brand }) {
-  return `products:list:${JSON.stringify([keyword ?? '', categoryId ?? '', brand ?? ''])}`;
+function buildProductListCacheKey(generation, { keyword, categoryId, brand }) {
+  return `${PRODUCT_LIST_CACHE_PREFIX}:${generation}:${JSON.stringify([keyword ?? '', categoryId ?? '', brand ?? ''])}`;
 }
 
 function mapRankingProducts(rows) {
@@ -121,12 +137,14 @@ async function getProducts(req, res) {
       return sendError(res, ERROR[validation.errorCode]);
     }
 
-    const cacheKey = buildProductListCacheKey(validation.value);
+    let cacheKey = null;
 
     // Redis 장애 시에도 서비스는 계속 동작해야 하므로, 캐시 조회 실패는
     // 에러를 던지지 않고 DB 조회 경로로 자연스럽게 넘어가게 한다.
     try {
-      const cached = await redis.get(cacheKey);
+      const generation = await getProductListGeneration();
+      if (generation) cacheKey = buildProductListCacheKey(generation, validation.value);
+      const cached = cacheKey ? await redis.get(cacheKey) : null;
       if (cached) {
         const products = JSON.parse(cached);
 
@@ -140,6 +158,8 @@ async function getProducts(req, res) {
         });
       }
     } catch (cacheError) {
+      // 세대/캐시 조회에 실패한 요청은 DB 응답만 반환하고 캐시를 쓰지 않는다.
+      cacheKey = null;
       console.error('Redis 조회 실패, DB로 폴백:', cacheError.message);
     }
 
@@ -160,10 +180,14 @@ async function getProducts(req, res) {
       searchLogModel.recordSearch(req, { keyword: validation.value.keyword, resultCount: products.length });
     }
 
-    try {
-      await redis.set(cacheKey, JSON.stringify(products), 'EX', PRODUCT_LIST_CACHE_TTL_SECONDS);
-    } catch (cacheError) {
-      console.error('Redis 저장 실패:', cacheError.message);
+    if (cacheKey) {
+      try {
+        // 조회를 시작한 세대에만 저장한다. DB 조회 도중 무효화가 발생해도
+        // 이전 응답은 과거 세대에 남을 뿐, 새 요청의 캐시를 오염시키지 않는다.
+        await redis.set(cacheKey, JSON.stringify(products), 'EX', PRODUCT_LIST_CACHE_TTL_SECONDS);
+      } catch (cacheError) {
+        console.error('Redis 저장 실패:', cacheError.message);
+      }
     }
 
     return sendSuccess(res, {
@@ -177,13 +201,11 @@ async function getProducts(req, res) {
 }
 
 // 상품 생성/수정/상태변경 후 목록 캐시를 무효화한다.
-// 조합별로 키가 다르므로(위 buildProductListCacheKey) 패턴 삭제로 한 번에 정리한다.
+// DB 변경 완료 후 공유 세대를 교체한다. 이전 조회의 늦은 저장까지 키 공간으로
+// 격리하며, 이전 세대 데이터는 기존 300초 TTL로 정리한다(KEYS 전체 탐색 불필요).
 async function invalidateProductListCache() {
   try {
-    const keys = await redis.keys('products:list:*');
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
+    await redis.set(PRODUCT_LIST_GENERATION_KEY, randomUUID());
   } catch (error) {
     console.error('상품 목록 캐시 무효화 실패:', error.message);
   }
