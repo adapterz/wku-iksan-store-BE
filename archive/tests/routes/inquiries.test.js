@@ -121,4 +121,12 @@ describe('GET /api/inquiries/me', () => {
       adminReply: '확인 후 처리했습니다.', status: 'answered', createdAt: inquiryRow.created_at
     });
   });
+
+  test('개인화된 응답이라 캐시를 금지한다', async () => {
+    inquiryModel.getMyInquiries.mockResolvedValue({ rows: [], totalCount: 0 });
+
+    const res = await request(app()).get('/api/inquiries/me');
+
+    expect(res.headers['cache-control']).toBe('private, no-store');
+  });
 });
