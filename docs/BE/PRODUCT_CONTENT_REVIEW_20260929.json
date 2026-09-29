@@ -1,0 +1,420 @@
+{
+  "status": "DRAFT_NOT_APPLIED",
+  "checkedAtUtc": "2026-09-29 10:47:42 UTC",
+  "issue": "https://github.com/adapterz/wku-iksan-store-BE/issues/138#issuecomment-5777233026",
+  "source": {
+    "baseUrl": "https://iksan.store",
+    "beDevelop": "4996b64563c6e597f01f49509adea3be187a7df8",
+    "feDevelop": "051c349526c2bbea54cd1ff05f0b7bf2054f5513",
+    "contentReference": "BE db/seed.sql; identity manually compared using product type, brand and price; not an executable seed"
+  },
+  "allowedFields": [
+    "descriptionImageUrl",
+    "usageMethod"
+  ],
+  "excludedFields": [
+    "id",
+    "name",
+    "brand",
+    "price",
+    "thumbnailUrl",
+    "description",
+    "validPeriod",
+    "exchangeLocation",
+    "caution",
+    "categoryId",
+    "status"
+  ],
+  "items": [
+    {
+      "id": 76,
+      "name": "익산역 아메리카노 교환권",
+      "brand": "익산역 카페",
+      "price": 4500,
+      "seedName": "익산역 아메리카노 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "발급일로부터 30일 이내 사용 가능합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_americano.webp",
+        "usageMethod": "교환권 제시 후 매장에서 아메리카노로 교환 가능합니다."
+      }
+    },
+    {
+      "id": 77,
+      "name": "익산 로컬 베이커리 세트",
+      "brand": "익산 빵마을",
+      "price": 12000,
+      "seedName": "익산 빵마을 베이커리 세트 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "구매 후 매장에서 교환 가능합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_bakery_set.webp"
+      }
+    },
+    {
+      "id": 78,
+      "name": "익산 한우 불고기 세트",
+      "brand": "익산축산협동조합",
+      "price": 65000,
+      "seedName": "익산축산협동조합 한우 불고기 세트 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "배송 수령 후 냉장 보관해주세요."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_hanwoo_bulgogi_set.webp",
+        "usageMethod": "교환권 제시 후 매장에서 한우 불고기 세트로 교환 가능합니다. 교환 후 냉장 보관해주세요."
+      }
+    },
+    {
+      "id": 79,
+      "name": "익산 황등 비빔밥 이용권",
+      "brand": "황등맛집",
+      "price": 10000,
+      "seedName": "익산 황등 비빔밥 이용권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "매장 방문 후 쿠폰을 제시해주세요."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_bibimbap_voucher.webp"
+      }
+    },
+    {
+      "id": 80,
+      "name": "익산 농산물 꾸러미",
+      "brand": "익산로컬푸드",
+      "price": 30000,
+      "seedName": "익산로컬푸드 농산물 꾸러미 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "수령 후 냉장 보관해주세요."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_produce_bundle.webp",
+        "usageMethod": "교환권 제시 후 매장에서 농산물 꾸러미로 교환 가능합니다. 수령 후 냉장 보관해주세요."
+      }
+    },
+    {
+      "id": 81,
+      "name": "익산 카페 음료 교환권",
+      "brand": "익산카페거리",
+      "price": 5000,
+      "seedName": "익산 카페 음료 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "사용 기간 내 매장에서 사용 가능합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_cafe_drink.webp"
+      }
+    },
+    {
+      "id": 82,
+      "name": "익산 전통시장 상품권",
+      "brand": "익산전통시장",
+      "price": 20000,
+      "seedName": "익산 전통시장 상품권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "가맹점 방문 후 결제 시 사용 가능합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_traditional_market.webp"
+      }
+    },
+    {
+      "id": 83,
+      "name": "익산 수제 한과 세트",
+      "brand": "익산전통식품",
+      "price": 25000,
+      "seedName": "익산전통식품 한과 세트 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "개봉 후 빠른 섭취를 권장합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_hangwa_set.webp",
+        "usageMethod": "교환권 제시 후 매장에서 한과 세트로 교환 가능합니다. 개봉 후 빠른 섭취를 권장합니다."
+      }
+    },
+    {
+      "id": 84,
+      "name": "익산 미륵산 체험권",
+      "brand": "미륵산체험마을",
+      "price": 15000,
+      "seedName": "익산 미륵산 체험권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "예약 후 방문하여 이용 가능합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_mireuksan_experience.webp"
+      }
+    },
+    {
+      "id": 85,
+      "name": "익산 보석박물관 입장권",
+      "brand": "익산보석박물관",
+      "price": 8000,
+      "seedName": "익산 보석박물관 입장권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "발급 후 지정 기간 내 사용 가능합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_gem_museum.webp"
+      }
+    },
+    {
+      "id": 86,
+      "name": "익산 쌀 10kg",
+      "brand": "익산농협",
+      "price": 35000,
+      "seedName": "익산농협 쌀 10kg 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "직사광선을 피해 보관해주세요."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_rice_10kg.webp",
+        "usageMethod": "교환권 제시 후 매장에서 쌀 10kg으로 교환 가능합니다. 직사광선을 피해 보관해주세요."
+      }
+    },
+    {
+      "id": 87,
+      "name": "익산 딸기 세트",
+      "brand": "익산농가",
+      "price": 18000,
+      "seedName": "익산농가 딸기 세트 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "냉장 보관 후 섭취하세요."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_strawberry_set.webp",
+        "usageMethod": "교환권 제시 후 매장에서 딸기 세트로 교환 가능합니다. 냉장 보관 후 섭취하세요."
+      }
+    },
+    {
+      "id": 88,
+      "name": "익산 커피 원두 세트",
+      "brand": "익산로스터리",
+      "price": 15000,
+      "seedName": "익산로스터리 원두 세트 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "개봉 후 밀봉 보관하세요."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_coffee_bean_set.webp",
+        "usageMethod": "교환권 제시 후 매장에서 원두 세트로 교환 가능합니다. 개봉 후 밀봉 보관하세요."
+      }
+    },
+    {
+      "id": 89,
+      "name": "익산 지역 특산품 선물세트",
+      "brand": "익산로컬푸드",
+      "price": 50000,
+      "seedName": "익산로컬푸드 특산품 선물세트 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "선물용 또는 가정용으로 이용 가능합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_specialty_gift_set.webp",
+        "usageMethod": "교환권 제시 후 매장에서 특산품 선물세트로 교환 가능합니다. 선물용 또는 가정용으로 이용 가능합니다."
+      }
+    },
+    {
+      "id": 90,
+      "name": "익산 문화 체험 패키지",
+      "brand": "익산문화센터",
+      "price": 30000,
+      "seedName": "익산 문화 체험 패키지",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "예약 후 체험 장소에서 이용 가능합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_culture_experience.webp"
+      }
+    },
+    {
+      "id": 91,
+      "name": "익산 서동마을 떡 세트",
+      "brand": "서동마을떡집",
+      "price": 20000,
+      "seedName": "서동마을떡집 떡 세트 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "수령 후 냉장 보관하며 빠른 섭취를 권장합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_seodong_rice_cake.webp",
+        "usageMethod": "교환권 제시 후 매장에서 떡 세트로 교환 가능합니다. 수령 후 냉장 보관하며 빠른 섭취를 권장합니다."
+      }
+    },
+    {
+      "id": 92,
+      "name": "익산 함라 한옥마을 체험권",
+      "brand": "함라한옥체험관",
+      "price": 25000,
+      "seedName": "익산 함라 한옥마을 체험권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "사전 예약 후 방문하여 이용 가능합니다."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_hamra_hanok_experience.webp"
+      }
+    },
+    {
+      "id": 93,
+      "name": "익산 로컬 와인 선물세트",
+      "brand": "익산와이너리",
+      "price": 40000,
+      "seedName": "익산와이너리 와인 선물세트 교환권",
+      "before": {
+        "descriptionImageUrl": null,
+        "usageMethod": "직사광선을 피해 서늘한 곳에 보관해주세요."
+      },
+      "proposed": {
+        "descriptionImageUrl": "/images/description_wine_set.webp",
+        "usageMethod": "교환권 제시 후 매장에서 와인 선물세트로 교환 가능합니다. 직사광선을 피해 서늘한 곳에 보관해주세요."
+      }
+    }
+  ],
+  "imageHeadChecks": [
+    {
+      "path": "/images/description_americano.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_bakery_set.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_hanwoo_bulgogi_set.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_bibimbap_voucher.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_produce_bundle.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_cafe_drink.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_traditional_market.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_hangwa_set.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_mireuksan_experience.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_gem_museum.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_rice_10kg.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_strawberry_set.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_coffee_bean_set.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_specialty_gift_set.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_culture_experience.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_seodong_rice_cake.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_hamra_hanok_experience.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    },
+    {
+      "path": "/images/description_wine_set.webp",
+      "status": 200,
+      "contentType": [
+        "image/webp"
+      ]
+    }
+  ]
+}
