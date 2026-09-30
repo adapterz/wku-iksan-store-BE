@@ -110,6 +110,8 @@ npm run test:gift-notifications:db  # 선물 알림 DB 연동 테스트
 세부 API 명세는 Wiki [API 설계](https://github.com/adapterz/wku-iksan-store-BE/wiki/API-설계) 문서를,
 DB 구조는 [db/ERD.md](db/ERD.md)를 참고하세요. 기능별 구현 배경·검증 방법은 `docs/BE/`, `docs/DB/` 아래 문서에 정리되어 있습니다.
 
+찜 목록 응답에 추가된 `product.wishlistCount`와 검증 범위는 [찜 목록 관심 수](docs/BE/WISHLIST_COUNTS.md)를 참고하세요.
+
 ## 배포
 
 `main` 브랜치에 반영되면 `.github/workflows/deploy.yml`로 운영 배포가 진행되고,

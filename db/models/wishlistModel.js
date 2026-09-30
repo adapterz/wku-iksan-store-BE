@@ -27,6 +27,8 @@ const deleteWishlist = async (userId, productId) => {
 
 const getWishlistsByUserId = async (userId) => {
   // 찜 화면에 필요한 상품·카테고리 정보를 함께 조회하고 최신 등록순으로 정렬한다.
+  // 목록은 본인 것으로 제한하되 관심 수는 해당 상품을 찜한 전체 회원을 집계한다.
+  // product_id 인덱스를 활용할 수 있는 서브쿼리로 조회 왕복은 한 번만 수행한다.
   const query = `
     SELECT
       w.id AS wishlist_id,
@@ -38,7 +40,9 @@ const getWishlistsByUserId = async (userId) => {
       p.thumbnail_url AS thumbnail_url,
       p.category_id AS category_id,
       c.name AS category_name,
-      p.status AS product_status
+      p.status AS product_status,
+      (SELECT COUNT(*) FROM wishlists all_w
+       WHERE all_w.product_id = p.id) AS wishlist_count
     FROM wishlists w
     JOIN products p ON w.product_id = p.id
     JOIN categories c ON p.category_id = c.id
