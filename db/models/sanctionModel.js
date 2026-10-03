@@ -18,11 +18,10 @@ const countWarnings = async (userId, runner = pool) => {
   return Number(rows[0].total);
 };
 
-// endsAt은 JS Date 객체를 그대로 저장한다. db/pool.js에 timezone 설정이 없어 mysql2가
-// Node 프로세스의 로컬 타임존 기준으로 변환해서 저장하고, 읽어올 때도 동일 기준으로
-// 되돌리므로 이 앱 안에서 주고받는 값은 일관된다. 다만 나중에 정지 여부 판단 훅에서
-// SQL의 NOW()와 직접 비교하는 코드를 추가할 때는, MySQL 서버 세션 타임존이 Node
-// 프로세스 타임존과 다르면 오차가 생길 수 있으니 그때 반드시 확인해야 한다.
+// endsAt은 JS Date로 전달하고, pool의 +09:00 설정으로 KST DATETIME에 저장·복원한다.
+// 기존 UTC 프로세스가 작성한 ends_at은 배포 전 별도 확인이 필요하다.
+// 전환 절차: docs/BE/DATABASE_TIMEZONE.md. SQL CURRENT_TIMESTAMP를 쓰는 DB 세션도
+// KST여야 하며, 드라이버 timezone 옵션이 DB 세션 시간대까지 변경하지는 않는다.
 //
 // 경고는 유저당 1건만 허용되고(7-2절), 정지는 "활성 정지 확인 후 계정 삭제"와 경합하면
 // 탈퇴로 회피될 수 있다(7-5절, usersController.deleteAccount). 두 경우 모두 유저 행을
@@ -61,10 +60,8 @@ const createSanction = async (userId, issuedBy, { type, reason, endsAt }) => {
 };
 
 // DELETE /api/users/me에서 활성 정지 중인 유저의 탈퇴를 막기 위한 조회(이슈 #90 7-5절).
-// 정지의 자연 만료는 status를 바꾸지 않고 조회 시점에 ends_at으로 판단하는데, SQL의
-// NOW()는 MySQL 서버 세션 타임존 기준이라 Node 프로세스 타임존과 다르면 오차가 생길 수
-// 있다(createSanction 주석 참고). endsAt은 이 프로세스가 로컬 타임존 기준으로 쓰고
-// 읽으므로, SQL에서 비교하지 않고 그대로 읽어와 Node 프로세스 시계로 비교한다.
+// 자연 만료는 status를 바꾸지 않고 조회 시 판단한다. pool이 KST DATETIME을
+// JS Date로 복원한 뒤 절대 시각(epoch)으로 비교하므로 Node의 TZ에 의존하지 않는다.
 const getActiveSuspension = async (userId, runner = pool) => {
   const [rows] = await runner.query(
     `${SANCTION_SELECT} WHERE user_id = ? AND type = 'suspension' AND status = 'active'`,
