@@ -92,6 +92,7 @@ npm run test:reviews:db        # 리뷰 기능 DB 연동 테스트
 npm run test:cart:db           # 장바구니 기능 DB 연동 테스트
 npm run test:session:db        # 세션 무효화 DB 연동 테스트
 npm run test:gift-notifications:db  # 선물 알림 DB 연동 테스트
+npm run test:timezone:db       # KST 날짜 변환 (별도 로컬 DB·명시적 실행 설정 필요)
 ```
 
 ## API 개요
@@ -111,6 +112,12 @@ npm run test:gift-notifications:db  # 선물 알림 DB 연동 테스트
 DB 구조는 [db/ERD.md](db/ERD.md)를 참고하세요. 기능별 구현 배경·검증 방법은 `docs/BE/`, `docs/DB/` 아래 문서에 정리되어 있습니다.
 
 ## 배포
+
+### DB 시간대 전환 확인 (이슈 #147)
+
+DB 연결은 KST DATETIME 기준(`timezone: '+09:00'`)입니다. **기존 제재 종료 시각(`ends_at`)이 UTC로 저장됐는지 확인하기 전에는 바로 배포하지 않습니다.** DB 세션 시간대 확인·기존 데이터 점검·전환/롤백 절차는 [DB 날짜 변환 기준](docs/BE/DATABASE_TIMEZONE.md)을 참고하세요. 자동 데이터 보정은 포함하지 않습니다.
+
+### 배포 절차
 
 `main` 브랜치에 반영되면 `.github/workflows/deploy.yml`로 운영 배포가 진행되고,
 서버에서는 `deploy.sh`(Docker Compose 재기동)로 재배포합니다. Nginx 리버스 프록시·SSL 설정은
