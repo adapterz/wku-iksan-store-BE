@@ -20,7 +20,9 @@ async function main() {
   }
   const connection = await mysql.createConnection({
     host: config.DB_HOST, port: config.DB_PORT || 3306,
-    user: config.DB_USER, password: config.DB_PASSWORD
+    user: config.DB_USER, password: config.DB_PASSWORD,
+    // 직접 작성하는 ends_at 픽스처도 앱과 같은 KST DATETIME 기준을 사용한다.
+    timezone: '+09:00'
   });
   const database = 'review_test_' + crypto.randomBytes(8).toString('hex');
   let created = false;
