@@ -1,5 +1,8 @@
 {
-  "status": "DRAFT_NOT_APPLIED",
+  "status": "APPLIED",
+  "appliedOnKst": "2026-09-29",
+  "applicationRecord": "https://github.com/adapterz/wku-iksan-store-BE/pull/143#issuecomment-5889788581",
+  "recordNote": "checkedAtUtc and before are pre-application observations; proposed contains the values applied on 2026-09-29. This is a historical record, not a current production snapshot or a request to reapply. validPeriod was excluded and is managed separately by Aon.",
   "checkedAtUtc": "2026-09-29 10:47:42 UTC",
   "issue": "https://github.com/adapterz/wku-iksan-store-BE/issues/138#issuecomment-5777233026",
   "source": {
