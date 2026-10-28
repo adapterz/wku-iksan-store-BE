@@ -128,6 +128,19 @@ NODE_ENV=development npm run dev
 **health 응답은 DB·Redis 연결 성공까지 보장하지 않습니다.** 상품 조회와 서버 오류 로그, Redis의 `PONG`도 함께 확인합니다.
 BE만 실행하면 API를 확인할 수 있으며 FE 화면이 열리는 것은 아닙니다. 화면 검증은 [FE 저장소](https://github.com/adapterz/wku-iksan-store-FE)의 로컬 실행·API 프록시 설정을 함께 맞춰야 합니다. seed의 `/images/description_*.webp`는 FE 이미지 경로입니다.
 
+FE의 기본 BE 연결 주소는 `http://localhost:3000`이므로, 이 안내처럼 BE를 4000번 포트에서 실행한다면 **별도 터미널의 FE 저장소에서 `BE_URL`을 지정**합니다. BE 포트를 변경했다면 해당 주소도 함께 변경합니다.
+
+```powershell
+# Windows PowerShell (FE 저장소에서)
+$env:BE_URL = 'http://localhost:4000'
+npm run dev
+```
+
+```bash
+# macOS / Linux (FE 저장소에서)
+BE_URL=http://localhost:4000 npm run dev
+```
+
 ## 6. 테스트 계정 준비
 
 seed에는 `test@example.com`과 `admin@example.com` 계정이 있지만 비밀번호는 해시로 저장돼 있습니다. **원문 비밀번호를 추측하지 말고 직접 정한 비밀번호로 새 로컬 계정을 가입**해서 사용합니다.
