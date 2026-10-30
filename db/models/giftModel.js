@@ -6,6 +6,17 @@ const pool = require('../pool');
 const NOTIFICATION_ELIGIBILITY = `o.receiver_id = ?
   AND o.is_self_gift = false AND o.payment_status = 'paid'`;
 
+// 탈퇴 트랜잭션에서 해당 users 행을 먼저 잠근 뒤 호출한다.
+// 주문 경로도 같은 회원 잠금을 사용하므로 확인~삭제 사이에 새 선물이 들어올 수 없다.
+// FOR UPDATE는 기존 스냅샷이 아닌 최신 커밋 상태를 읽는다. 목록 화면용 상품/리뷰 조인은 불필요하다.
+const hasUnusedGiftsForUpdate = async (receiverId, connection) => {
+  const [rows] = await connection.query(`
+    SELECT g.id FROM orders o JOIN gifts g ON g.order_id = o.id
+    WHERE o.receiver_id = ? AND o.payment_status = 'paid' AND g.status = 'unused'
+    LIMIT 1 FOR UPDATE`, [receiverId]);
+  return rows.length > 0;
+};
+
 const getUnnotifiedGiftIds = async (receiverId) => {
   const [rows] = await pool.query(`
     SELECT g.id FROM gifts g JOIN orders o ON g.order_id = o.id
@@ -113,6 +124,7 @@ const updateGiftStatusToUsed = async (giftId) => {
 };
 
 module.exports = {
+  hasUnusedGiftsForUpdate,
   getUnnotifiedGiftIds,
   notifyGifts,
   getGiftsByReceiverId,

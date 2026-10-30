@@ -38,6 +38,7 @@ DB_PASSWORD=직접_설정한_비밀번호
 | 스크립트 | 검증 대상 |
 | --- | --- |
 | `test:session:db` | 비밀번호 변경 및 세션 무효화 |
+| `test:withdrawal:db` | 탈퇴와 단건·즉시 구매·장바구니 선물 주문의 동시 처리 |
 | `test:cart:db` | 장바구니·주문 그룹 및 관련 마이그레이션 |
 | `test:direct-orders:db` | 즉시 구매 주문 그룹 |
 | `test:gift-notifications:db` | 선물 도착 알림 |
@@ -45,15 +46,21 @@ DB_PASSWORD=직접_설정한_비밀번호
 | `test:reviews:db` | 리뷰·관련 제재·마이그레이션 |
 | `test:timezone:db` | KST 날짜 변환과 기존 날짜 데이터 사례 |
 
-다음 다섯 명령은 환경 파일을 **인자**로 받습니다.
+다음 여섯 명령은 환경 파일을 **인자**로 받습니다.
 
 ```bash
 npm run test:session:db -- .env.test.local
+npm run test:withdrawal:db -- .env.test.local
 npm run test:cart:db -- .env.test.local
 npm run test:direct-orders:db -- .env.test.local
 npm run test:gift-notifications:db -- .env.test.local
 npm run test:search-logs:db -- .env.test.local
 ```
+
+탈퇴 테스트는 실제 회원 행의 잠금 대기를 확인하기 위해 로컬 테스트 계정에
+`performance_schema.data_locks`, `data_lock_waits`, `threads` 조회 권한이 필요합니다.
+권한이 없는 환경에서는 검증을 건너뛰지 않고 실패합니다. 운영 계정 권한을 변경하지 말고
+별도의 로컬 테스트 계정을 사용하세요. 검증 범위와 결과는 [탈퇴 동시성 보완](ACCOUNT_WITHDRAWAL.md)에 정리했습니다.
 
 리뷰(`test:reviews:db`)·타임존(`test:timezone:db`) 테스트는 **추가 실행 동의 변수**가 필요합니다. 타임존은 아래에서 환경 파일을 읽기 위해 npm 스크립트와 같은 파일을 Node로 직접 실행합니다. 새 터미널에서 설정해 다른 작업의 환경변수와 섞지 않는 것을 권장합니다.
 
