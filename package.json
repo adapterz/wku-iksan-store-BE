@@ -8,6 +8,7 @@
     "dev": "nodemon app.js",
     "test": "jest",
     "test:session:db": "node scripts/test-session-invalidation-db.js",
+    "test:withdrawal:db": "node scripts/test-account-withdrawal-db.js",
     "test:reviews:db": "node scripts/test-reviews-db.js",
     "test:cart:db": "node scripts/test-cart-db.js",
     "test:direct-orders:db": "node scripts/test-direct-orders-db.js",
