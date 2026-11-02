@@ -57,6 +57,37 @@ describe('POST /api/reviews/:id/reports', () => {
     expect(res.body.code).toBe('REPORT_ALREADY_EXISTS');
   });
 
+  test.each([
+    [1, 1], ['1', 1], [1, '1'], ['1', '1']
+  ])('본인 후기 신고는 403으로 차단 (작성자 %p, 세션 %p)', async (authorId, userId) => {
+    reviewModel.getReviewById.mockResolvedValue({ ...review, user_id: authorId });
+    reportModel.createReport.mockResolvedValue(reportRow);
+    const res = await request(app(userId)).post('/api/reviews/9/reports')
+      .send({ reason: '사유', authorId: 999, reporterId: 999, isMine: false });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('CANNOT_REPORT_OWN_REVIEW');
+    expect(res.body.data).toBeNull();
+    expect(reviewModel.getReviewById).toHaveBeenCalledWith(9);
+    expect(reportModel.createReport).not.toHaveBeenCalled();
+  });
+
+  test('숨김 상태의 본인 후기도 API 직접 신고 차단', async () => {
+    reviewModel.getReviewById.mockResolvedValue({ ...review, user_id: 1, status: 'hidden' });
+    reportModel.createReport.mockResolvedValue(reportRow);
+    const res = await request(app()).post('/api/reviews/9/reports').send({ reason: '사유' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('CANNOT_REPORT_OWN_REVIEW');
+    expect(reportModel.createReport).not.toHaveBeenCalled();
+  });
+
+  test('작성자가 탈퇴해 user_id가 null인 후기는 다른 회원이 신고 가능', async () => {
+    reviewModel.getReviewById.mockResolvedValue({ ...review, user_id: null });
+    reportModel.createReport.mockResolvedValue(reportRow);
+    const res = await request(app()).post('/api/reviews/9/reports').send({ reason: '사유' });
+    expect(res.status).toBe(201);
+    expect(reportModel.createReport).toHaveBeenCalledWith(1, expect.objectContaining({ authorId: null }));
+  });
+
   test('정상 접수 시 201, 신고 시점 리뷰 내용/별점을 스냅샷으로 전달', async () => {
     reviewModel.getReviewById.mockResolvedValue(review);
     reportModel.createReport.mockResolvedValue(reportRow);
