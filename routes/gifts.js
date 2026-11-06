@@ -12,5 +12,6 @@ router.get('/unnotified', requireLogin, giftsController.getUnnotifiedGifts);
 router.patch('/notify', requireLogin, giftsController.notifyGifts);
 router.get('/:id', requireLogin, giftsController.getGiftDetail);
 router.patch('/:id/use', requireLogin, giftsController.useGift);
+router.patch('/:id/cancel', requireLogin, giftsController.cancelGift);
 
 module.exports = router;

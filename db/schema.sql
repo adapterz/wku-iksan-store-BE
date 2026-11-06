@@ -117,6 +117,7 @@ CREATE TABLE gifts (
     used_at         DATETIME,
     notified_at     DATETIME NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cancelled_at    DATETIME NULL,
 
     CONSTRAINT uq_gifts_order_id UNIQUE (order_id),
     CONSTRAINT uq_gifts_barcode UNIQUE (barcode),

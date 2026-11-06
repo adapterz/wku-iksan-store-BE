@@ -30,6 +30,7 @@ async function notifyGifts(req, res) {
       data: { count: giftIds.length, giftIds }
     });
   } catch (error) {
+    if (error.cartError === 'UNAUTHORIZED') return sendError(res, ERROR.UNAUTHORIZED);
     console.error('Failed to acknowledge gift notifications:', error);
     return sendError(res);
   }
@@ -49,8 +50,9 @@ async function getGifts(req, res) {
     const receiverId = req.session.userId;
     const { status } = req.query;
 
-    // Call the model function. It handles filtering if status is 'unused' or 'used'.
-    // Invalid status defaults to returning all gifts.
+    if (status !== undefined && !['unused', 'used', 'cancelled'].includes(status)) {
+      return sendError(res, ERROR.INVALID_GIFT_STATUS);
+    }
     const gifts = await giftModel.getGiftsByReceiverId(receiverId, status);
 
     // Map snake_case to camelCase
@@ -64,7 +66,8 @@ async function getGifts(req, res) {
       senderNickname: gift.sender_nickname,
       isSelfGift: !!gift.is_self_gift,
       createdAt: gift.created_at,
-      usedAt: gift.used_at
+      usedAt: gift.used_at,
+      cancelledAt: gift.cancelled_at ?? null
     }));
 
     return sendSuccess(res, {
@@ -100,9 +103,10 @@ async function getGiftDetail(req, res) {
         ...reviewFields(gift, userId),
         productName: gift.product_name,
         thumbnailUrl: gift.thumbnail_url,
-        barcode: gift.barcode,
+        barcode: gift.status === 'cancelled' ? null : gift.barcode,
         status: gift.status,
         usedAt: gift.used_at,
+        cancelledAt: gift.cancelled_at ?? null,
         isSelfGift: !!gift.is_self_gift,
         sender: {
           userId: gift.sender_id,
@@ -117,50 +121,30 @@ async function getGiftDetail(req, res) {
   }
 }
 
-async function useGift(req, res) {
-  try {
+function giftAction(action, success) {
+  return async (req, res) => {
     const giftId = parsePositiveInteger(req.params.id, { allowString: true });
     if (giftId === null) return sendError(res, ERROR.INVALID_GIFT_ID);
-    const userId = req.session.userId;
-
-    const gift = await giftModel.getGiftDetailById(giftId);
-    if (!gift) {
-      return sendError(res, ERROR.GIFT_NOT_FOUND);
+    try {
+      const result = await giftModel[action](req.session.userId, giftId);
+      if (result.errorCode) return sendError(res, ERROR[result.errorCode]);
+      return sendSuccess(res, { ...success, data: result.data });
+    } catch (error) {
+      // 회원 잠금을 기다리는 동안 탈퇴가 끝난 경우.
+      if (error.cartError === 'UNAUTHORIZED') return sendError(res, ERROR.UNAUTHORIZED);
+      console.error('Gift action failed:', action, error);
+      return sendError(res);
     }
-
-    if (gift.receiver_id !== userId) {
-      return sendError(res, ERROR.FORBIDDEN_NOT_OWNER);
-    }
-
-    const affectedRows = await giftModel.updateGiftStatusToUsed(giftId);
-    if (affectedRows === 0) {
-      // It means it was not in 'unused' status
-      return sendError(res, ERROR.GIFT_ALREADY_USED);
-    }
-
-    // To return the exact updated usedAt, we can fetch it again or rely on DB defaults.
-    // Let's just fetch it again to be perfectly accurate with DB time.
-    const updatedGift = await giftModel.getGiftDetailById(giftId);
-
-    return sendSuccess(res, {
-      ...SUCCESS.GIFT_USE_SUCCESS,
-      data: {
-        giftId: updatedGift.gift_id,
-        status: updatedGift.status,
-        usedAt: updatedGift.used_at
-      }
-    });
-
-  } catch (error) {
-    console.error('Failed to use gift:', error);
-    return sendError(res);
-  }
+  };
 }
+const useGift = giftAction('useGift', SUCCESS.GIFT_USE_SUCCESS);
+const cancelGift = giftAction('cancelGift', SUCCESS.GIFT_CANCEL_SUCCESS);
 
 module.exports = {
   getUnnotifiedGifts,
   notifyGifts,
   getGifts,
   getGiftDetail,
-  useGift
+  useGift,
+  cancelGift
 };

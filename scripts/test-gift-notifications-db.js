@@ -132,6 +132,42 @@ async function main() {
   assert.deepEqual((await state(a)).notified_at, beforeRetry.notified_at);
   assert.equal((await request(app).get('/api/gifts').set('x-test-user', '2')).status, 200);
   console.log('PASS existing gift list/detail/use routes');
+
+  // 미확인 목록을 읽은 뒤 한 건이 취소돼도 나머지 알림은 확인할 수 있다.
+  const gone = await gift({ sender: 3 }), live = await gift({ sender: 3 });
+  assert((await get()).body.data.giftIds.includes(gone));
+  const cancel = await request(app).patch('/api/gifts/' + gone + '/cancel').set('x-test-user', '2');
+  assert.equal(cancel.status, 200);
+  const lookup = (suffix, user = 2) => request(app).get('/api/gifts' + suffix).set('x-test-user', String(user));
+  const list = await lookup('?status=cancelled');
+  assert.equal(list.status, 200);
+  assert.deepEqual(list.body.data.map(g => g.giftId), [gone]);
+  assert.equal(list.body.data[0].cancelledAt, cancel.body.data.cancelledAt);
+  for (const suffix of ['', '?status=unused', '?status=used']) {
+    const response = await lookup(suffix);
+    assert.equal(response.status, 200);
+    assert(!response.body.data.some(g => g.giftId === gone));
+  }
+  assert.equal((await lookup('?status=canceled')).status, 400);
+  const cancelledDetail = await lookup('/' + gone);
+  assert.equal(cancelledDetail.body.data.barcode, null);
+  assert.equal(cancelledDetail.body.data.canReview, false);
+  assert.equal(cancelledDetail.body.data.cancelledAt, cancel.body.data.cancelledAt);
+  assert.equal((await lookup('/' + gone, 3)).status, 403);
+  assert.equal((await lookup('?status=cancelled', 3)).body.data.length, 0);
+  assert(!(await get()).body.data.giftIds.includes(gone));
+  for (const invalid of [other, own, unpaid, 999999]) {
+    assert.equal((await notify([gone, live, invalid])).status, 404);
+    assert.equal((await state(live)).notified_at, null);
+  }
+  const accepted = await notify([gone, live]);
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(accepted.body.data, { count: 2, giftIds: [gone, live] });
+  assert((await state(live)).notified_at);
+  assert.equal((await state(gone)).notified_at, null);
+  assert.equal((await notify([gone])).status, 200);
+  assert.equal((await state(gone)).notified_at, null);
+  console.log('PASS cancellation lookup, ownership, barcode suppression and mixed stale/invalid notification batches');
 }
 
 main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(async () => {
