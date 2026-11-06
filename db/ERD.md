@@ -40,6 +40,20 @@ API/배포 주의사항: [세션 무효화](../docs/BE/SESSION_INVALIDATION.md).
 - 마이그레이션: [migrate_gift_notifications.sql](migrate_gift_notifications.sql). 운영 실행은 별도이며 백필은 재실행하지 않습니다.
 - API와 검증 방법: [선물 도착 알림](../docs/BE/GIFT_NOTIFICATIONS.md).
 
+## 미사용 교환권 취소 ([#153](https://github.com/adapterz/wku-iksan-store-BE/issues/153))
+
+수신자가 교환권을 취소하면 아래 두 상태를 한 트랜잭션에서 변경합니다. 기존 FK와 주문 1건당 교환권 최대 1개라는 관계는 유지합니다.
+
+| 컬럼 | 취소 전 → 후 |
+| --- | --- |
+| `gifts.status` | `unused → cancelled`. 사용 완료된 교환권은 취소 불가 |
+| `orders.payment_status` | `paid → cancelled`. 해당 개별 Mock 주문만 변경하며 실제 환불을 의미하지 않음 |
+| `gifts.cancelled_at` (신규) | `DATETIME NULL`. 최초 취소 시각을 기록하며 재요청해도 바뀌지 않음 |
+
+취소된 교환권의 `used_at`은 NULL이고 바코드는 DB 기록에 남지만 API로 제공하지 않습니다. 기존 개별 주문 금액과 묶음 주문의 상태·금액은 그대로 둡니다.
+
+기존 DB용 SQL: [migrate_gift_cancellation.sql](migrate_gift_cancellation.sql). 컬럼이 없을 때만 추가하며 기존 행의 백필이나 seed 재실행은 필요하지 않습니다. 문서 반영은 운영 DB 적용을 뜻하지 않습니다.
+
 ## 장바구니·묶음 주문 (이슈 #94, 검토용 구현)
 
 설계 초안의 API·ERD 검토가 남아 있으며, 아래 추가 사항은 운영 DB에 적용하지 않았습니다.
