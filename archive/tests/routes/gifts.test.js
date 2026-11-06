@@ -65,14 +65,28 @@ describe('GET /api/gifts', () => {
     expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'used');
   });
 
-  test('알 수 없는 status 값도 검증 없이 그대로 모델에 전달', async () => {
+  test('알 수 없는 status는 목록 조회 없이 거절', async () => {
     giftModel.getGiftsByReceiverId.mockResolvedValue([]);
     const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
 
     const res = await request(app).get('/api/gifts').query({ status: 'weird' });
 
-    expect(res.status).toBe(200);
-    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'weird');
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_GIFT_STATUS');
+    expect(giftModel.getGiftsByReceiverId).not.toHaveBeenCalled();
+  });
+
+  test('취소됨 탭과 상세: 최초 취소 시각 반환, 후기·바코드 비노출', async () => {
+    const gift = { gift_id: 10, receiver_id: 1, status: 'cancelled', payment_status: 'cancelled',
+      cancelled_at: '2026-11-06T02:00:00.000Z', barcode: 'private' };
+    giftModel.getGiftsByReceiverId.mockResolvedValue([gift]);
+    giftModel.getGiftDetailById.mockResolvedValue(gift);
+    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+    const list = await request(app).get('/api/gifts?status=cancelled');
+    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'cancelled');
+    expect(list.body.data[0]).toMatchObject({ canReview: false, cancelledAt: gift.cancelled_at });
+    const detail = await request(app).get('/api/gifts/10');
+    expect(detail.body.data).toMatchObject({ barcode: null, canReview: false, cancelledAt: gift.cancelled_at });
   });
 
   test('DB 오류가 나면 기본 500 오류 응답', async () => {
@@ -166,84 +180,35 @@ describe('GET /api/gifts/:id', () => {
   });
 });
 
-describe('PATCH /api/gifts/:id/use', () => {
-  afterEach(() => {
-    jest.resetAllMocks();
+describe.each([
+  ['use', 'useGift', 'used', 'usedAt', 'GIFT_USE_SUCCESS'],
+  ['cancel', 'cancelGift', 'cancelled', 'cancelledAt', 'GIFT_CANCEL_SUCCESS']
+])('PATCH /api/gifts/:id/%s', (path, method, status, timeField, success) => {
+  afterEach(() => jest.resetAllMocks());
+  const send = (app, id = '10') => request(app).patch('/api/gifts/' + id + '/' + path);
+  const app = () => createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
+  test('인증 및 ID 검증이 먼저다', async () => {
+    expect((await send(createTestApp('/api/gifts', giftsRouter, { session: {} }))).body.code).toBe('UNAUTHORIZED');
+    expect((await send(app(), 'nope')).body.code).toBe('INVALID_GIFT_ID');
+    expect(giftModel[method]).not.toHaveBeenCalled();
   });
-
-  test('로그인하지 않으면 401 UNAUTHORIZED', async () => {
-    const app = createTestApp('/api/gifts', giftsRouter, { session: {} });
-
-    const res = await request(app).patch('/api/gifts/10/use');
-
-    expect(res.status).toBe(401);
-    expect(res.body.code).toBe('UNAUTHORIZED');
-    expect(giftModel.getGiftDetailById).not.toHaveBeenCalled();
+  test.each([['GIFT_NOT_FOUND',404], ['FORBIDDEN_NOT_OWNER',403], ['GIFT_ALREADY_USED',409]])('모델 오류 %s', async (errorCode, http) => {
+    giftModel[method].mockResolvedValue({ errorCode });
+    const res = await send(app());
+    expect(res.status).toBe(http);
+    expect(res.body.code).toBe(errorCode);
   });
-
-  test('숫자가 아닌 ID는 400 INVALID_GIFT_ID', async () => {
-    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
-
-    const res = await request(app).patch('/api/gifts/nope/use');
-
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('INVALID_GIFT_ID');
-    expect(giftModel.getGiftDetailById).not.toHaveBeenCalled();
-  });
-
-  test('선물이 없으면 404 GIFT_NOT_FOUND', async () => {
-    giftModel.getGiftDetailById.mockResolvedValue(null);
-    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
-
-    const res = await request(app).patch('/api/gifts/999/use');
-
-    expect(res.status).toBe(404);
-    expect(res.body.code).toBe('GIFT_NOT_FOUND');
-  });
-
-  test('내 선물이 아니면 403 FORBIDDEN_NOT_OWNER', async () => {
-    giftModel.getGiftDetailById.mockResolvedValue({ gift_id: 10, receiver_id: 2 });
-    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
-
-    const res = await request(app).patch('/api/gifts/10/use');
-
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe('FORBIDDEN_NOT_OWNER');
-  });
-
-  test('이미 사용된 선물이면 409 GIFT_ALREADY_USED', async () => {
-    giftModel.getGiftDetailById.mockResolvedValue({ gift_id: 10, receiver_id: 1 });
-    giftModel.updateGiftStatusToUsed.mockResolvedValue(0);
-    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
-
-    const res = await request(app).patch('/api/gifts/10/use');
-
-    expect(res.status).toBe(409);
-    expect(res.body.code).toBe('GIFT_ALREADY_USED');
-  });
-
-  test('정상 사용 처리되면 200과 갱신된 상태 반환', async () => {
-    giftModel.getGiftDetailById
-      .mockResolvedValueOnce({ gift_id: 10, receiver_id: 1 })
-      .mockResolvedValueOnce({ gift_id: 10, status: 'used', used_at: '2026-07-29T00:00:00.000Z' });
-    giftModel.updateGiftStatusToUsed.mockResolvedValue(1);
-    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
-
-    const res = await request(app).patch('/api/gifts/10/use');
-
+  test('수신자는 세션 기준, 상태와 DB 시각을 반환', async () => {
+    const data = { giftId: 10, status, [timeField]: '2026-11-06T10:00:00.000Z' };
+    giftModel[method].mockResolvedValue({ data });
+    const res = await send(app()).send({ receiverId: 999 });
+    expect(giftModel[method]).toHaveBeenCalledWith(1, 10);
     expect(res.status).toBe(200);
-    expect(res.body.code).toBe('GIFT_USE_SUCCESS');
-    expect(res.body.data).toEqual({ giftId: 10, status: 'used', usedAt: '2026-07-29T00:00:00.000Z' });
+    expect(res.body).toMatchObject({ code: success, data });
   });
-
-  test('DB 오류가 나면 기본 500 오류 응답', async () => {
-    giftModel.getGiftDetailById.mockRejectedValue(new Error('DB down'));
-    const app = createTestApp('/api/gifts', giftsRouter, { session: LOGGED_IN });
-
-    const res = await request(app).patch('/api/gifts/10/use');
-
-    expect(res.status).toBe(500);
-    expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  test('DB 오류가 나면 기본 500', async () => {
+    giftModel[method].mockRejectedValue(new Error('DB down'));
+    expect((await send(app())).status).toBe(500);
   });
 });
 

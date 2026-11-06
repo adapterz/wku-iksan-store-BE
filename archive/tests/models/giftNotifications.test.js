@@ -6,6 +6,7 @@ beforeEach(() => {
   jest.resetAllMocks();
   connection = { beginTransaction: jest.fn(), query: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn() };
   pool.getConnection.mockResolvedValue(connection);
+  connection.query.mockResolvedValueOnce([[{ id: 7, nickname: 'recipient' }]]);
 });
 
 test('목록은 단일 쿼리로 결제·수신자·self·미확인 조건 적용', async () => {
@@ -20,11 +21,12 @@ test('목록은 단일 쿼리로 결제·수신자·self·미확인 조건 적�
 test('잠금 후 전체 대상 검증, 요청 ID의 NULL 확인 시각만 갱신', async () => {
   connection.query.mockResolvedValueOnce([[{ id: 51 }, { id: 52 }]]).mockResolvedValueOnce([{ affectedRows: 1 }]);
   expect(await model.notifyGifts(7, [51, 52])).toBe(true);
-  const [select, args] = connection.query.mock.calls[0];
+  expect(connection.query.mock.calls[0][0]).toMatch(/FROM users .*FOR UPDATE/);
+  const [select, args] = connection.query.mock.calls[1];
   expect(select).toContain('FOR UPDATE');
   expect(select).not.toContain('notified_at IS NULL');
   expect(args).toEqual([7, 51, 52]);
-  const [update, ids] = connection.query.mock.calls[1];
+  const [update, ids] = connection.query.mock.calls[2];
   expect(update).toContain('WHERE id IN (?,?) AND notified_at IS NULL');
   expect(ids).toEqual([51, 52]);
   expect(connection.commit).toHaveBeenCalledTimes(1);
@@ -34,7 +36,7 @@ test('잠금 후 전체 대상 검증, 요청 ID의 NULL 확인 시각만 갱신
 test('요청 ID 중 하나라도 부적격이면 UPDATE 없이 전체 롤백', async () => {
   connection.query.mockResolvedValueOnce([[{ id: 51 }]]);
   expect(await model.notifyGifts(7, [51, 52])).toBe(false);
-  expect(connection.query).toHaveBeenCalledTimes(1);
+  expect(connection.query).toHaveBeenCalledTimes(2);
   expect(connection.rollback).toHaveBeenCalledTimes(1);
   expect(connection.commit).not.toHaveBeenCalled();
   expect(connection.release).toHaveBeenCalledTimes(1);
@@ -46,4 +48,18 @@ test('UPDATE 오류는 롤백 후 전달하고 연결 반환', async () => {
   expect(connection.rollback).toHaveBeenCalledTimes(1);
   expect(connection.commit).not.toHaveBeenCalled();
   expect(connection.release).toHaveBeenCalledTimes(1);
+});
+
+test('정상 선물과 취소 선물을 함께 확인해도 정상 선물만 갱신', async () => {
+  connection.query.mockResolvedValueOnce([[{ id: 51, status: 'cancelled' }, { id: 52, status: 'unused' }]])
+    .mockResolvedValueOnce([{ affectedRows: 1 }]);
+  expect(await model.notifyGifts(7, [51, 52])).toBe(true);
+  expect(connection.query.mock.calls[2][1]).toEqual([52]);
+});
+
+test('취소된 선물만 확인하면 쓰기 없이 성공', async () => {
+  connection.query.mockResolvedValueOnce([[{ id: 51, status: 'cancelled' }]]);
+  expect(await model.notifyGifts(7, [51])).toBe(true);
+  expect(connection.query).toHaveBeenCalledTimes(2);
+  expect(connection.commit).toHaveBeenCalledTimes(1);
 });
