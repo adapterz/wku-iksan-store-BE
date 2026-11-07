@@ -55,6 +55,15 @@ if (!sessionSecret) {
   console.warn('SESSION_SECRET 환경변수가 없어 개발용 임시 값을 사용합니다. 배포 전 반드시 설정하세요.');
 }
 
+// 검색 로그 client_hash의 salt도 세션 시크릿과 동일한 기준으로 필수 확인한다.
+if (!process.env.SEARCH_LOG_HASH_SALT) {
+  if (isProduction) {
+    console.error('SEARCH_LOG_HASH_SALT 환경변수가 설정되지 않았습니다. 프로덕션 환경에서는 필수입니다.');
+    process.exit(1);
+  }
+  console.warn('SEARCH_LOG_HASH_SALT 환경변수가 없어 개발용 임시 값을 사용합니다. 배포 전 반드시 설정하세요.');
+}
+
 // JSON 요청 본문 파싱 미들웨어
 app.use(express.json());
 
@@ -121,6 +130,12 @@ app.use((err, req, res, next) => {
 
   return sendError(res);
 });
+
+// 검색 로그 보관 기간(14일) 초과분을 하루 주기로 정리한다. DB 스크립트가 app.js를
+// 거치지 않고 라우터만 직접 불러오는 test 환경에서는 불필요한 인터벌을 만들지 않는다.
+if (process.env.NODE_ENV !== 'test') {
+  require('./db/models/searchLogModel').startSearchLogCleanupSchedule();
+}
 
 // 포트로 서버 실행
 app.listen(PORT, () => {

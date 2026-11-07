@@ -9,6 +9,8 @@ const dotenv = require('dotenv');
 const request = require('supertest');
 const express = require('express');
 const session = require('express-session');
+// 임시 DB의 상품 조회·탈퇴 검증이 공유 Redis에 접근하지 않도록 격리한다.
+require('./helpers/isolate-product-cache');
 
 async function main() {
   if (process.env.REVIEW_DB_TEST !== '1') throw new Error('Set REVIEW_DB_TEST=1 explicitly');
@@ -111,6 +113,18 @@ async function main() {
     ]);
     assert.deepEqual(simultaneous.map(r => r.status).sort(), [201, 409]); checks++;
     const reviewId = simultaneous.find(r => r.status === 201).body.data.reviewId;
+    const reportUrl = '/api/reviews/' + reviewId + '/reports';
+    const ownReport = await receiver.post(reportUrl).send({ reason: '본인 신고', isMine: false, authorId: senderId });
+    check(ownReport.status === 403 && ownReport.body.code === 'CANNOT_REPORT_OWN_REVIEW', 'own report rejected despite forged body');
+    const [[afterOwnReport]] = await connection.query('SELECT COUNT(*) AS total FROM reports WHERE review_id=?', [reviewId]);
+    check(afterOwnReport.total === 0, 'own report never persisted');
+    check((await request(app).post(reportUrl).send({ reason: '비로그인' })).status === 401, 'anonymous report rejected');
+    const otherReport = await stranger.post(reportUrl).send({ reason: '타인 후기 신고' });
+    check(otherReport.status === 201, 'other user may report');
+    const duplicateReport = await stranger.post(reportUrl).send({ reason: '중복 신고' });
+    check(duplicateReport.status === 409 && duplicateReport.body.code === 'REPORT_ALREADY_EXISTS', 'duplicate report unchanged');
+    const [[persistedReport]] = await connection.query('SELECT COUNT(*) AS total, MAX(review_author_id_snapshot) AS author_id FROM reports WHERE review_id=?', [reviewId]);
+    check(persistedReport.total === 1 && persistedReport.author_id === receiverId, 'one report with real author snapshot');
     check((await receiver.get('/api/gifts/' + gifts[0])).body.data.reviewId === reviewId, 'created gift state');
     const second = await receiver.post('/api/reviews').send({ giftId: gifts[1], rating: 1, content: '두 번째' });
     const third = await receiver.post('/api/reviews').send({ giftId: gifts[2], rating: 3, content: '세 번째' });
@@ -130,6 +144,8 @@ async function main() {
     check(edited.body.data.content === '수정됨' && edited.body.data.rating === 4, 'partial update');
     check((await receiver.patch('/api/reviews/' + reviewId).send({ status: 'visible' })).status === 400, 'status cannot be injected');
     check((await reviewModel.updateReviewStatus(reviewId, 'hidden')).status === 'hidden', 'moderation hides review');
+    const hiddenOwnReport = await receiver.post(reportUrl).send({ reason: '숨김 후기 본인 신고' });
+    check(hiddenOwnReport.status === 403 && hiddenOwnReport.body.code === 'CANNOT_REPORT_OWN_REVIEW', 'hidden own report rejected');
     const hiddenList = await request(app).get('/api/products/' + productId + '/reviews');
     check(hiddenList.body.data.summary.reviewCount === 2 && hiddenList.body.data.summary.averageRating === 2, 'hidden excluded from summary');
     const hiddenGift = await receiver.get('/api/gifts/' + gifts[0]);
@@ -217,6 +233,8 @@ async function main() {
     check(finalList.body.data.reviews.every(r => !r.isMine && r.nickname === '작성당시' &&
       !('userId' in r) && !('user_id' in r) && !('giftId' in r)), 'no deleted account identifiers exposed');
     check((await receiver.get('/api/reviews/me')).status === 401, 'deleted session cannot access own reviews');
+    const formerAuthorReport = await stranger.post('/api/reviews/' + newId + '/reports').send({ reason: '탈퇴 회원 후기 신고' });
+    check(formerAuthorReport.status === 201, 'review with deleted author remains reportable');
     console.log(JSON.stringify({ result: 'PASS', mysqlVersion: version, checks, database, cleanup: 'temporary database will be dropped' }));
   } finally {
     if (pool) await pool.end();

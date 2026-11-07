@@ -208,6 +208,7 @@ describe('GET /api/wishlists', () => {
         thumbnail_url: '/images/product_1.png',
         category_id: 1,
         category_name: '음료',
+        wishlist_count: 3,
         created_at: '2026-08-06T10:00:00.000Z'
       }
     ]);
@@ -227,11 +228,37 @@ describe('GET /api/wishlists', () => {
           price: 4500,
           thumbnailUrl: '/images/product_1.png',
           categoryId: 1,
-          categoryName: '음료'
+          categoryName: '음료',
+          wishlistCount: 3
         },
         createdAt: '2026-08-06T10:00:00.000Z'
       }
     ]);
+  });
+
+  test.each([0, 1, 12, '12'])('전체 관심 수 %p는 숫자로 반환하고 소유자 정보는 노출하지 않는다', async count => {
+    wishlistModel.getWishlistsByUserId.mockResolvedValue([
+      { wishlist_id: 10, product_id: 3, wishlist_count: count, user_id: 1, product_status: 'hidden' }
+    ]);
+    const app = createTestApp('/api/wishlists', wishlistsRouter, { session: LOGGED_IN });
+    const res = await request(app).get('/api/wishlists?userId=2');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].product.wishlistCount).toBe(Number(count));
+    expect(res.body.data[0].product.status).toBe('hidden');
+    expect(res.body.data[0]).not.toHaveProperty('user_id');
+    expect(wishlistModel.getWishlistsByUserId).toHaveBeenCalledWith(1);
+    expect(wishlistModel.getWishlistsByUserId).toHaveBeenCalledTimes(1);
+  });
+
+  test('각 상품의 집계를 목록 길이와 무관하게 그대로 전달한다', async () => {
+    wishlistModel.getWishlistsByUserId.mockResolvedValue([
+      { wishlist_id: 11, product_id: 4, wishlist_count: 8 },
+      { wishlist_id: 10, product_id: 3, wishlist_count: 2 }
+    ]);
+    const app = createTestApp('/api/wishlists', wishlistsRouter, { session: LOGGED_IN });
+    const res = await request(app).get('/api/wishlists');
+    expect(res.body.data.map(item => [item.product.id, item.product.wishlistCount])).toEqual([[4, 8], [3, 2]]);
   });
 
   test('DB 오류가 나면 기본 500 오류 응답', async () => {

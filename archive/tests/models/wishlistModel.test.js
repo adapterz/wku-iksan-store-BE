@@ -49,7 +49,7 @@ describe('wishlistModel', () => {
   });
 
   test('찜 목록은 상품·카테고리를 조인하고 최신 등록순으로 조회', async () => {
-    const rows = [{ wishlist_id: 10, product_id: 3 }];
+    const rows = [{ wishlist_id: 10, product_id: 3, wishlist_count: 4 }];
     pool.query.mockResolvedValue([rows]);
 
     const result = await wishlistModel.getWishlistsByUserId(1);
@@ -60,6 +60,10 @@ describe('wishlistModel', () => {
     expect(query).toContain('JOIN categories c ON p.category_id = c.id');
     expect(query).toContain('WHERE w.user_id = ?');
     expect(query).toContain('ORDER BY w.created_at DESC');
+    expect(query).toMatch(/SELECT COUNT\(\*\) FROM wishlists all_w\s+WHERE all_w.product_id = p.id/);
+    expect(query).toContain('AS wishlist_count');
+    expect(query).not.toContain('all_w.user_id');
+    expect(pool.query).toHaveBeenCalledTimes(1);
     expect(params).toEqual([1]);
     expect(result).toEqual(rows);
   });

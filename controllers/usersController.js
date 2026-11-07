@@ -128,7 +128,10 @@ async function updateEmail(req, res) {
     }
 
     const existingEmail = await userModel.getUserByEmail(emailValidation.value);
-    if (existingEmail && existingEmail.id !== userId) {
+    if (existingEmail) {
+      if (existingEmail.id === userId) {
+        return sendError(res, ERROR.EMAIL_SAME_AS_CURRENT);
+      }
       return sendError(res, ERROR.EMAIL_ALREADY_EXISTS);
     }
 
@@ -187,6 +190,13 @@ async function updatePassword(req, res) {
       return sendError(res, ERROR.INVALID_PASSWORD);
     }
 
+    // 값이 같아도 "변경 성공" 처리하면 auth_version이 올라가 다른 기기 세션이
+    // 전부 로그아웃된다(#138 1-3). 아무것도 안 바뀌었는데 그 부작용만 발생하지 않게 막는다.
+    const isSameAsCurrent = await bcrypt.compare(newPasswordValidation.value, user.password);
+    if (isSameAsCurrent) {
+      return sendError(res, ERROR.PASSWORD_SAME_AS_CURRENT);
+    }
+
     const hashedPassword = await bcrypt.hash(newPasswordValidation.value, 10);
     const changed = await userModel.updateUserPassword(userId, hashedPassword, user.auth_version);
     if (!changed) {
@@ -209,24 +219,30 @@ async function updatePassword(req, res) {
   }
 }
 
-// "활성 정지 확인 → 계정 삭제" 사이에 새 정지가 끼어드는 경합을 막기 위해, 유저 행을
-// 잠그고(FOR UPDATE) 재확인한 뒤 삭제까지 같은 트랜잭션에서 처리한다. sanctionModel.
-// createSanction도 정지/경고 등록 전에 동일하게 유저 행을 먼저 잠그므로, 두 트랜잭션이
-// 같은 유저 행 잠금을 두고 경쟁하면서 순서대로 처리된다 — 한쪽이 정지를 부여하면 다른
-// 쪽은 그 커밋 이후에야 재확인하게 되어 회피할 수 없다. 활성 정지가 있으면 커밋할 것이
-// 없으므로 롤백만 하고 삭제 여부를 false로 반환한다.
-async function deleteUserIfNoActiveSanction(userId) {
+// 회원 잠금 → 미사용 선물/활성 정지 확인 → 삭제를 같은 연결·트랜잭션에서 처리한다.
+// 단건·장바구니·즉시 구매의 lockUsers 및 createSanction과 같은 회원 행을 잠근다.
+// 선물/정지가 먼저 커밋되면 탈퇴를 거절하고, 탈퇴가 먼저 끝나면 새 주문은 회원 없음으로 거절된다.
+async function deleteUserIfAllowed(userId) {
   const connection = await pool.getConnection();
   let started = false;
   try {
     await connection.beginTransaction();
     started = true;
-    await connection.query('SELECT id FROM users WHERE id = ? FOR UPDATE', [userId]);
+    const [users] = await connection.query('SELECT id FROM users WHERE id = ? FOR UPDATE', [userId]);
+    if (!users.length) {
+      await connection.rollback();
+      return { errorCode: 'UNAUTHORIZED' };
+    }
+
+    if (await giftModel.hasUnusedGiftsForUpdate(userId, connection)) {
+      await connection.rollback();
+      return { errorCode: 'ACCOUNT_HAS_UNUSED_GIFTS' };
+    }
 
     const activeSuspension = await sanctionModel.getActiveSuspension(userId, connection);
     if (activeSuspension) {
       await connection.rollback();
-      return { deleted: false };
+      return { errorCode: 'ACCOUNT_HAS_ACTIVE_SANCTION' };
     }
 
     await userModel.deleteUser(userId, connection);
@@ -276,14 +292,9 @@ async function deleteAccount(req, res) {
       return sendError(res, ERROR.INVALID_PASSWORD);
     }
 
-    const unusedGifts = await giftModel.getGiftsByReceiverId(userId, 'unused');
-    if (unusedGifts.length > 0) {
-      return sendError(res, ERROR.ACCOUNT_HAS_UNUSED_GIFTS);
-    }
-
-    const { deleted } = await deleteUserIfNoActiveSanction(userId);
-    if (!deleted) {
-      return sendError(res, ERROR.ACCOUNT_HAS_ACTIVE_SANCTION);
+    const { errorCode } = await deleteUserIfAllowed(userId);
+    if (errorCode) {
+      return sendError(res, ERROR[errorCode]);
     }
     await invalidateProductListCache();
 

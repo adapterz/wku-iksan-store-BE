@@ -215,17 +215,17 @@ describe('PATCH /api/users/me/email', () => {
     expect(res.body.code).toBe('EMAIL_ALREADY_EXISTS');
   });
 
-  test('본인의 기존 이메일로 재요청하면 정상 처리', async () => {
+  test('본인의 기존 이메일로 재요청하면 409 EMAIL_SAME_AS_CURRENT', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, email: 'me@test.com', password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
     userModel.getUserByEmail.mockResolvedValue({ id: 1, email: 'me@test.com' });
-    userModel.updateUserEmail.mockResolvedValue({ id: 1, email: 'me@test.com' });
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 
     const res = await request(app).patch('/api/users/me/email').send({ email: 'me@test.com', password: 'pw' });
 
-    expect(res.status).toBe(200);
-    expect(res.body.code).toBe('EMAIL_UPDATE_SUCCESS');
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('EMAIL_SAME_AS_CURRENT');
+    expect(userModel.updateUserEmail).not.toHaveBeenCalled();
   });
 
   test('정상 변경되면 200 EMAIL_UPDATE_SUCCESS와 변경된 이메일 반환', async () => {
@@ -320,10 +320,25 @@ describe('PATCH /api/users/me/password', () => {
     expect(userModel.updateUserPassword).not.toHaveBeenCalled();
   });
 
+  test('새 비밀번호가 현재 비밀번호와 같으면 409 PASSWORD_SAME_AS_CURRENT', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed', auth_version: 1 });
+    bcrypt.compare.mockResolvedValue(true); // 현재 비밀번호 확인, 동일 여부 확인 둘 다 일치
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+
+    const res = await request(app)
+      .patch('/api/users/me/password')
+      .send({ currentPassword: 'oldPw123', newPassword: 'oldPw123' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('PASSWORD_SAME_AS_CURRENT');
+    expect(userModel.updateUserPassword).not.toHaveBeenCalled();
+  });
+
   test('정상 변경되면 200 PASSWORD_UPDATE_SUCCESS', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed', auth_version: 1 });
     userModel.updateUserPassword.mockResolvedValue(true);
-    bcrypt.compare.mockResolvedValue(true);
+    // 현재 비밀번호 확인은 일치, "새 비밀번호가 현재와 같은지" 확인은 불일치여야 정상 변경 흐름을 탄다.
+    bcrypt.compare.mockImplementation(async (plain) => plain === 'oldPw1');
     bcrypt.hash.mockResolvedValue('new-hashed');
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 
@@ -355,6 +370,8 @@ describe('DELETE /api/users/me', () => {
 
   beforeEach(() => {
     connection = { beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn(), query: jest.fn() };
+    connection.query.mockResolvedValue([[{ id: 1 }]]);
+    giftModel.hasUnusedGiftsForUpdate.mockResolvedValue(false);
     pool.getConnection.mockResolvedValue(connection);
   });
 
@@ -396,14 +413,20 @@ describe('DELETE /api/users/me', () => {
   test('본인이 수신자인 미사용 선물이 있으면 409 ACCOUNT_HAS_UNUSED_GIFTS', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
-    giftModel.getGiftsByReceiverId.mockResolvedValue([{ gift_id: 5, status: 'unused' }]);
+    giftModel.hasUnusedGiftsForUpdate.mockResolvedValue(true);
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 
     const res = await request(app).delete('/api/users/me').send({ password: 'correctPw' });
 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('ACCOUNT_HAS_UNUSED_GIFTS');
-    expect(giftModel.getGiftsByReceiverId).toHaveBeenCalledWith(1, 'unused');
+    expect(giftModel.hasUnusedGiftsForUpdate).toHaveBeenCalledWith(1, connection);
+    expect(giftModel.getGiftsByReceiverId).not.toHaveBeenCalled();
+    expect(connection.beginTransaction.mock.invocationCallOrder[0]).toBeLessThan(connection.query.mock.invocationCallOrder[0]);
+    expect(connection.query.mock.invocationCallOrder[0]).toBeLessThan(giftModel.hasUnusedGiftsForUpdate.mock.invocationCallOrder[0]);
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+    expect(connection.release).toHaveBeenCalledTimes(1);
     expect(sanctionModel.getActiveSuspension).not.toHaveBeenCalled();
     expect(userModel.deleteUser).not.toHaveBeenCalled();
   });
@@ -411,7 +434,6 @@ describe('DELETE /api/users/me', () => {
   test('활성 정지 중이면 403 ACCOUNT_HAS_ACTIVE_SANCTION (탈퇴로 제재 회피 방지)', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
-    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
     sanctionModel.getActiveSuspension.mockResolvedValue({ id: 9, type: 'suspension', status: 'active' });
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 
@@ -430,7 +452,6 @@ describe('DELETE /api/users/me', () => {
   test('경고만 있고 활성 정지가 없으면 삭제를 막지 않음', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
-    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
     sanctionModel.getActiveSuspension.mockResolvedValue(null);
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 
@@ -445,7 +466,6 @@ describe('DELETE /api/users/me', () => {
   test('정상 삭제되면 200 ACCOUNT_DELETE_SUCCESS와 함께 세션 종료', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
-    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
     sanctionModel.getActiveSuspension.mockResolvedValue(null);
     const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
 
@@ -464,7 +484,6 @@ describe('DELETE /api/users/me', () => {
   test('계정 삭제 후 서버 세션 정리가 실패해도 쿠키를 제거하고 200을 유지', async () => {
     userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
     bcrypt.compare.mockResolvedValue(true);
-    giftModel.getGiftsByReceiverId.mockResolvedValue([]);
     sanctionModel.getActiveSuspension.mockResolvedValue(null);
     const app = createTestApp('/api/users', usersRouter, {
       session: {
@@ -493,5 +512,34 @@ describe('DELETE /api/users/me', () => {
 
     expect(res.status).toBe(500);
     expect(res.body.code).toBe('INTERNAL_SERVER_ERROR');
+  });
+
+  test('비밀번호 확인 후 다른 탈퇴가 완료됐으면 401, 중복 삭제하지 않음', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
+    bcrypt.compare.mockResolvedValue(true);
+    connection.query.mockResolvedValue([[]]);
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1 } });
+    const res = await request(app).delete('/api/users/me').send({ password: 'correctPw' });
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('UNAUTHORIZED');
+    expect(giftModel.hasUnusedGiftsForUpdate).not.toHaveBeenCalled();
+    expect(userModel.deleteUser).not.toHaveBeenCalled();
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.release).toHaveBeenCalledTimes(1);
+  });
+
+  test('잠금 안의 선물 확인 실패는 롤백하고 삭제·세션 정리를 하지 않음', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, password: 'hashed' });
+    bcrypt.compare.mockResolvedValue(true);
+    giftModel.hasUnusedGiftsForUpdate.mockRejectedValue(new Error('gift query failed'));
+    const destroy = jest.fn(cb => cb());
+    const app = createTestApp('/api/users', usersRouter, { session: { userId: 1, destroy } });
+    const res = await request(app).delete('/api/users/me').send({ password: 'correctPw' });
+    expect(res.status).toBe(500);
+    expect(userModel.deleteUser).not.toHaveBeenCalled();
+    expect(destroy).not.toHaveBeenCalled();
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+    expect(connection.release).toHaveBeenCalledTimes(1);
   });
 });
