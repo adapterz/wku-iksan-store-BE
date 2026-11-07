@@ -27,6 +27,12 @@ async function createReport(req, res) {
     const review = await reviewModel.getReviewById(reviewId);
     if (!review) return sendError(res, ERROR.REVIEW_NOT_FOUND);
 
+    // FE의 버튼 노출 여부나 요청 본문이 아니라 DB 작성자와 인증된 세션을 비교한다.
+    // BIGINT ID가 문자열로 반환되더라도 같은 계정은 차단한다. 탈퇴한 작성자는 null이다.
+    if (review.user_id != null && String(review.user_id) === String(req.session.userId)) {
+      return sendError(res, ERROR.CANNOT_REPORT_OWN_REVIEW);
+    }
+
     const report = await reportModel.createReport(req.session.userId, {
       reviewId,
       authorId: review.user_id,

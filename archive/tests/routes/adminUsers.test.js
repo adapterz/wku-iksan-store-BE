@@ -73,18 +73,15 @@ describe('PATCH /api/admin/users/:id/role', () => {
     expect(userModel.updateUserRole).not.toHaveBeenCalled();
   });
 
-  test('자기 자신을 admin으로 유지하는 요청은 허용', async () => {
-    userModel.getUserById.mockImplementation(async (id) => {
-      if (id === 1) return { id: 1, role: 'admin' };
-      return null;
-    });
-    userModel.updateUserRole.mockResolvedValue({ id: 1, role: 'admin' });
+  test('자기 자신을 다시 admin으로 승격하려 하면 403 CANNOT_PROMOTE_SELF', async () => {
+    userModel.getUserById.mockResolvedValue({ id: 1, role: 'admin' });
     const app = createTestApp('/api/admin/users', adminUsersRouter, { session: ADMIN_SESSION });
 
     const res = await request(app).patch('/api/admin/users/1/role').send({ role: 'admin' });
 
-    expect(res.status).toBe(200);
-    expect(res.body.code).toBe('ADMIN_ROLE_UPDATE_SUCCESS');
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('CANNOT_PROMOTE_SELF');
+    expect(userModel.updateUserRole).not.toHaveBeenCalled();
   });
 
   test('대상 유저가 없으면 404 USER_NOT_FOUND', async () => {
