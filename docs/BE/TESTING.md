@@ -85,7 +85,18 @@ TIMEZONE_DB_TEST=1 node --env-file=.env.test.local scripts/test-timezone-db.js
 
 
 
-## 3. 결과 기록 기준
+## 3. 교환권 취소 회귀 테스트
+
+취소 기능은 다음 Jest 테스트로 별도 확인할 수 있습니다.
+
+```bash
+npm test -- --runInBand archive/tests/routes/gifts.test.js archive/tests/models/giftTransition.test.js archive/tests/models/giftModel.test.js archive/tests/routes/giftNotifications.test.js archive/tests/models/giftNotifications.test.js
+```
+
+DB 모킹 기반 테스트이며, `package.json`에 취소 전용 실제 DB 테스트 명령은 아직 없습니다.
+실제 DB·브라우저 확인 항목 및 알려진 표시 문제는 [교환권 취소](GIFT_CANCELLATION.md#검증-방법)를 참고합니다.
+
+## 4. 결과 기록 기준
 
 검증 기록에는 기준 커밋, 실행 명령, 환경, 성공·실패 결과와 미확인 범위를 남깁니다.
 Jest 통과, 실제 DB 테스트 통과, 브라우저 확인, 운영 배포 확인을 서로 구분합니다.
