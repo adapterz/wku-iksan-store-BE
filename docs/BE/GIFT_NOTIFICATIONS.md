@@ -1,5 +1,7 @@
 # 선물 도착 알림 API
 
+현재 상태: `develop c581069`에 구현되어 있습니다(2026-11-10 문서 대조). 아래 API 설명은 현재 동작이며, 최초 도입 절차와 날짜가 있는 검증 기록은 당시 범위입니다. 교환권의 API·DB 명칭은 `gifts`입니다.
+
 기준: [선물 도착 알림 설계 이슈 #101](https://github.com/adapterz/wku-iksan-store-BE/issues/101).
 합의한 API 경로, `giftIds`, `gifts.notified_at`을 그대로 사용합니다.
 개별 읽음·NEW 표시·실시간 푸시·모달 UI는 이번 BE 변경에 포함하지 않습니다.
@@ -17,7 +19,7 @@
 }
 ```
 
-본인 수신, `is_self_gift = false`, `payment_status = 'paid'`, `notified_at IS NULL`을 모두 만족하는 ID를 오름차순으로 반환합니다.
+본인 수신, `is_self_gift = false`, `payment_status = 'paid'`, `gifts.status IN ('unused', 'used')`, `notified_at IS NULL`을 모두 만족하는 ID를 오름차순으로 반환합니다. 취소된 교환권은 제외합니다.
 ID와 개수는 한 번의 조회 결과에서 계산하며, 대상이 없으면 `count: 0`, `giftIds: []`입니다. 조회 자체는 확인 시각을 변경하지 않습니다.
 사용 완료 여부나 발신자의 탈퇴 여부는 알림 제외 조건이 아닙니다.
 
@@ -59,7 +61,7 @@ ID와 개수는 한 번의 조회 결과에서 계산하며, 대상이 없으면
 오류도 기존 `{ status, code, message, data }` 형식입니다. 성공 확인 전 모달을 닫거나 선물함으로 이동하지 않습니다.
 404이면 목록을 재조회해 대상을 갱신할 수 있고, 네트워크/서버 오류이면 같은 ID들로 재시도할 수 있습니다.
 
-## 3. DB 및 운영 적용
+## 3. DB 및 최초 도입 절차
 
 - 신규 DB: [schema.sql](../../db/schema.sql).
 - 기존 DB: [migrate_gift_notifications.sql](../../db/migrate_gift_notifications.sql).

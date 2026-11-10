@@ -85,10 +85,34 @@ TIMEZONE_DB_TEST=1 node --env-file=.env.test.local scripts/test-timezone-db.js
 
 
 
-## 3. 결과 기록 기준
+## 3. 교환권 취소 회귀 테스트
 
-검증 기록에는 기준 커밋, 실행 명령, 환경, 성공·실패 결과와 미확인 범위를 남깁니다.
+취소 기능은 다음 Jest 테스트로 별도 확인할 수 있습니다.
+
+```bash
+npm test -- --runInBand archive/tests/routes/gifts.test.js archive/tests/models/giftTransition.test.js archive/tests/models/giftModel.test.js archive/tests/routes/giftNotifications.test.js archive/tests/models/giftNotifications.test.js
+```
+
+DB 모킹 기반 테스트이며, `package.json`에 취소 전용 실제 DB 테스트 명령은 아직 없습니다.
+실제 DB·브라우저 확인 항목 및 알려진 표시 문제는 [교환권 취소](GIFT_CANCELLATION.md#검증-방법)를 참고합니다.
+
+## 4. 결과 기록 기준
+
+검증 기록은 `날짜 / 검증 범위 / 기준 커밋·환경·명령 / 결과 / 미확인 사항` 순서로 남깁니다.
 Jest 통과, 실제 DB 테스트 통과, 브라우저 확인, 운영 배포 확인을 서로 구분합니다.
+
+### 2026-11-09 마무리 문서 대조 시 검증
+
+| 날짜 | 검증 범위 | 기준 커밋·환경·명령 | 결과 | 미확인 사항 |
+| --- | --- | --- | --- | --- |
+| 11/9 | BE 전체 Jest | 구현 `develop c581069`, 문서 `f9071b2` 이후 설명 보완 / Node.js v24.11.1·기존 로컬 의존성 / `npm test -- --runInBand` | 54개 suite·889개 test 통과 | 실제 DB·브라우저·운영 환경 재검증은 아님 |
+| 11/9 | 취소 관련 선행 회귀 | 같은 구현 기준 / 위 3장의 5개 Jest 파일 | 5개 suite·70개 test 통과. 전체 889개에 포함, 합산하지 않음 | 실제 DB 잠금 경합 검증은 아님 |
+| 11/7 | DB 적용 공유·운영 화면 | 배포 PR·담당자·확인 항목은 [교환권 취소 기록](GIFT_CANCELLATION.md#배포-확인-및-알려진-사항) 참조 | 담당자 완료 공유 및 팀의 취소·내역 등 확인 기록 | 문서 갱신 중 DB·운영 테스트를 재실행하지 않음 |
+
+이 결과와 기존 PR의 DB 검증 기록은 환경·시점을 구분합니다. 전체 운영 QA 완료를 의미하지 않습니다.
+팀 공용 현황은 [BE 구현 현황 및 마무리 기록](https://github.com/adapterz/wku-iksan-store-BE/wiki/BE-구현-현황-및-마무리-기록), 항목별 확인 방법과 미확인 범위는 [#126](https://github.com/adapterz/wku-iksan-store-BE/issues/126)에 연결합니다.
+
+### 이전 확인 기록
 
 이 안내 보완 시 확인한 범위(2026-10-27):
 
