@@ -24,10 +24,18 @@ BE/FE 2개 저장소 체제로 정리되었습니다. 이 저장소는 **BE(API 
 
 ## 프로젝트 개요
 
-지역 상권과 연계한 온라인 선물하기 서비스를 목표로 팀이 함께 만드는 부트캠프 팀 프로젝트입니다.
-FE/BE/Cloud 역할을 나눠 기능 단위 브랜치에서 개발하고 PR 리뷰와 통합 검증을 진행하며,
-매일 데일리 스크럼과 정기 미팅으로 진행 상황을 맞춰가고 있습니다. 진행 중인 논의와 회의 기록은
-[GitHub Wiki](https://github.com/adapterz/wku-iksan-store-BE/wiki)에 누적하고 있습니다.
+지역 상권과 연계한 온라인 선물하기 서비스를 목표로 개발한 부트캠프 팀 프로젝트입니다.
+FE/BE/Cloud 역할을 나눠 기능 단위 브랜치에서 개발하고 PR 리뷰와 통합 검증을 진행했습니다.
+데일리 스크럼·미팅 기록은 [GitHub Wiki](https://github.com/adapterz/wku-iksan-store-BE/wiki)에 보존합니다.
+
+**현재 합의한 구현 범위는 마무리했으며, 남은 안내 불일치와 확장 후보는 후속 과제로 구분합니다.** 모든 A안/B안 후보를 구현했다는 뜻은 아닙니다.
+
+| 확인할 내용 | 문서 |
+| --- | --- |
+| 실행·기능·DB·인프라 문서 찾기 | [프로젝트 문서 목차](docs/README.md) |
+| 완료 범위·검증 근거·남은 사항 구분 | [마무리 기록](docs/BE/CLOSEOUT.md) |
+| 팀 공용 구현 현황 | [공용 BE Wiki](https://github.com/adapterz/wku-iksan-store-BE/wiki/BE-구현-현황-및-마무리-기록) |
+| 후속 보완·개선 후보 관리 | [향후 개선 과제 #158](https://github.com/adapterz/wku-iksan-store-BE/issues/158) |
 
 ### 팀 구성
 
@@ -53,7 +61,7 @@ BE 담당 구분은 우선 담당 영역을 나타내며, 작업 상황에 따�
 | 개발 편의 | nodemon |
 | CI | GitHub Actions (PR 자동 테스트) |
 
-응답은 `{ status, code, message, data, meta? }` 형태로 통일하고, DB의 snake_case 컬럼은 API 응답에서 camelCase로 매핑합니다.
+업무 API는 `{ status, code, message, data, meta? }` 형태를 사용하고, DB의 snake_case 컬럼은 API 응답에서 camelCase로 매핑합니다. 기동 확인용 `/api/health`는 예외로 `{ "status": "ok" }`를 반환합니다.
 사용자 입력값은 항상 파라미터 바인딩으로 처리해 SQL 인젝션을 방지합니다.
 
 ## 폴더 구조
@@ -70,7 +78,7 @@ db/                      # DB 연결 풀(pool.js), Redis 클라이언트, 모델
 scripts/                # DB 연동 수동 테스트 스크립트
 archive/tests/           # Jest 자동화 테스트
 public/images/           # 정적 이미지 서빙용 폴더
-docs/                    # BE·DB 개발 기록 문서
+docs/                    # 프로젝트 문서 목차, 기능·검증 안내, BE·DB 개발 기록
 infra/                   # nginx, cloud, architecture 등 인프라 관련 문서
 .github/workflows/       # PR 테스트·배포 자동화(GitHub Actions)
 ```

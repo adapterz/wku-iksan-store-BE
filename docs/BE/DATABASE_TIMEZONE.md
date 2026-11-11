@@ -1,5 +1,7 @@
 # DB 날짜 변환 기준 — 이슈 #147
 
+코드 변경은 [PR #148](https://github.com/adapterz/wku-iksan-store-BE/pull/148)로 develop에, [PR #149](https://github.com/adapterz/wku-iksan-store-BE/pull/149)로 main에 반영되었습니다. 아래 절차는 해당 변경을 처음 적용하거나 다른 환경으로 옮길 때의 점검 기준이며, 현재 운영 DB에 시간 보정을 다시 실행하라는 의미가 아닙니다. 적용 이력·실제 DB 값은 별도로 확인합니다.
+
 ## 변경 내용
 
 - DB의 `DATETIME`은 한국 시간(KST)으로 저장하고, `db/pool.js`의 `timezone: '+09:00'`으로 읽기·쓰기 기준을 고정한다.

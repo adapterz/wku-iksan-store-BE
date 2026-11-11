@@ -4,7 +4,7 @@
 
 기준: [선물 도착 알림 설계 이슈 #101](https://github.com/adapterz/wku-iksan-store-BE/issues/101).
 합의한 API 경로, `giftIds`, `gifts.notified_at`을 그대로 사용합니다.
-개별 읽음·NEW 표시·실시간 푸시·모달 UI는 이번 BE 변경에 포함하지 않습니다.
+개별 읽음·NEW 표시·실시간 푸시는 이 API의 범위가 아닙니다. 모달 UI는 최초 BE 변경과 별도의 FE 작업이며, 현재 프로젝트에 도착 안내 화면이 없다는 뜻은 아닙니다. 개별 도착 안내와 향후 후보인 통합 알림함도 구분합니다([마무리 기록](CLOSEOUT.md)).
 
 ## 1. 조회
 
