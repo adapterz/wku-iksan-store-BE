@@ -5,8 +5,10 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon app.js",
+    "dev": "node --watch app.js",
     "test": "jest",
+    "test:dev-security": "node scripts/test-dev-dependency-security.js",
+    "test:dev-watch": "node scripts/test-dev-watch.js",
     "test:session:db": "node scripts/test-session-invalidation-db.js",
     "test:withdrawal:db": "node scripts/test-account-withdrawal-db.js",
     "test:reviews:db": "node scripts/test-reviews-db.js",
@@ -28,8 +30,10 @@
   },
   "devDependencies": {
     "jest": "^30.4.2",
-    "nodemon": "^3.1.0",
     "supertest": "^7.2.2"
+  },
+  "overrides": {
+    "glob@10.5.0": "14.0.5"
   },
   "jest": {
     "testEnvironment": "node",

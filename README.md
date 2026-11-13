@@ -50,7 +50,7 @@ BE 담당 구분은 우선 담당 영역을 나타내며, 작업 상황에 따�
 | 데이터베이스 | MySQL(`mysql2`), Redis(`ioredis`) |
 | 인증 / 보안 | `express-session`, `bcrypt`, `helmet`, `express-rate-limit` |
 | 테스트 | Jest 기반 API 테스트 |
-| 개발 편의 | nodemon |
+| 개발 편의 | Node.js 내장 watch 모드 |
 | CI | GitHub Actions (PR 자동 테스트) |
 
 응답은 `{ status, code, message, data, meta? }` 형태로 통일하고, DB의 snake_case 컬럼은 API 응답에서 camelCase로 매핑합니다.
@@ -89,6 +89,8 @@ npm run dev
 ```
 
 로컬 HTTP 실행은 `NODE_ENV=development`를 사용합니다.
+`npm run dev`는 `node --watch app.js`를 실행하며, 진입 파일과 실제로 불러온 모듈이 변경되면 재시작합니다.
+불러오지 않은 파일과 `.env` 변경은 자동 재시작 대상이 아니므로 프로세스를 종료하고 다시 실행합니다. 기존 nodemon의 `rs` 명령은 지원하지 않습니다.
 `http://localhost:4000/api/health`와 `/api/products`로 기동·상품 조회를 확인합니다.
 health 응답만으로 DB·Redis 연결까지 검증된 것은 아닙니다.
 
@@ -108,7 +110,8 @@ health 응답만으로 DB·Redis 연결까지 검증된 것은 아닙니다.
 npm test -- --runInBand
 ```
 
-CI는 `npm test`를 실행합니다. 실제 MySQL 테스트는 별도 준비와 명령이 필요합니다.
+CI는 `npm test`와 개발용 의존성 회귀 점검을 실행합니다. 내장 watch 동작은 Windows·Linux·macOS에서 별도로 확인합니다.
+실제 MySQL 테스트는 별도 준비와 명령이 필요합니다.
 [테스트 가이드](docs/BE/TESTING.md)에서 기능별 DB 스크립트와 실행 조건을 확인하세요.
 
 ## API 개요
@@ -140,7 +143,7 @@ DB 구조는 [db/ERD.md](db/ERD.md)를 참고하세요. 기능별 구현 배경�
 
 | 상황 | 실행되는 워크플로 | 동작 |
 | --- | --- | --- |
-| PR 생성·갱신 | `Test` | Node.js 24에서 `npm ci` → `npm test`. 배포하지 않음 |
+| PR 생성·갱신 | `Test` | Node.js 24에서 설치·테스트·개발용 회귀 점검, OS별 watch 검증. 배포하지 않음 |
 | `develop`에 병합 | 배포 워크플로 없음 | 운영 배포하지 않음 |
 | `main`에 push (PR 병합 포함) | `Deploy BE` | 이미지 빌드·푸시 → BE 서버 재배포 |
 | `main`에 push하며 `infra/nginx/**` 변경 | `Deploy Nginx Config` 추가 실행 | Nginx 설정 전송 → 컨테이너 기동 → 설정 검사 통과 시 reload |

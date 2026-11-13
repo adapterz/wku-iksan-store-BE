@@ -20,3 +20,21 @@ jobs:
 
       - name: 테스트 실행
         run: npm test
+
+      - name: 개발용 의존성 회귀 검증
+        run: npm run test:dev-security
+
+  dev-watch:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 내장 watch 재시작 검증 (외부 패키지·DB 불필요)
+        run: npm run test:dev-watch
