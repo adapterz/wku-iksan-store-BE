@@ -42,12 +42,10 @@ for (const [name, metadata] of packages) {
   console.log(`PASS ${name}@${metadata.version}: 3 normal patterns + 2 bounded cases`);
 }
 
-const match = require('nodemon/lib/monitor/match');
-const file = path.join(root, 'controllers', 'authController.js');
-const monitored = match([file], [path.join(root, 'controllers', '**', '*.js')], 'js,json');
-assert.equal(monitored.result.length, 1);
+assert.equal(lock.packages['node_modules/nodemon'], undefined);
 passed++;
-assert.equal(match([file], [path.join(root, 'controllers', '**', '*.js')], 'json').result.length, 0);
+assert.ok(Object.entries(lock.packages).every(([name, metadata]) =>
+  !name.endsWith('/minimatch') || metadata.version !== '10.2.5'));
 passed++;
 
 const glob = require('glob');
