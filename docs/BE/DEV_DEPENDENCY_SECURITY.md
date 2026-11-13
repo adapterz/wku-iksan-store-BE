@@ -58,7 +58,7 @@ nodemon의 minimatch를 강제 교체하는 시도는 의존성 검사 오류로
 | `npm test -- --runInBand` | 54 suites / 889 tests 통과 |
 | 커버리지 수집·glob 경로별 임계값을 포함한 전체 테스트 | 54 suites / 889 tests 통과 |
 | `npm run test:dev-security` | 20건 통과 |
-| `npm run test:dev-watch` | Windows에서 6건 통과; Linux·macOS는 PR CI에서 확인 |
+| `npm run test:dev-watch` | 로컬 Windows 및 PR CI의 Windows·Linux·macOS에서 각각 6건 통과 |
 | 별도 새 환경의 `npm ci --omit=dev` | 통과, 개발용 도구 6종 미설치 확인 |
 | `npm audit --omit=dev` | 0건 유지 |
 | 전체 `npm audit` | 최초 13 → 1차 7 → nodemon 제거 후 5개 영향 패키지 항목, Low 5 / Moderate·High·Critical 0 |
@@ -83,7 +83,8 @@ npm audit
 
 - [x] 로컬 새 설치·전체 테스트·커버리지·회귀 점검
 - [x] 운영용 lock 항목 불변 및 개발용 패키지 제외 설치 확인
-- [ ] PR 리뷰 및 Linux CI 검증
+- [x] Linux 전체 테스트 및 Windows·Linux·macOS watch CI 검증 — [구현 커밋 6c83ed7 실행 결과](https://github.com/adapterz/wku-iksan-store-BE/actions/runs/43395905538)
+- [ ] PR 코드 리뷰
 - [ ] 병합 후 GitHub 경고 갱신 확인
 - [x] nodemon 대체·deepmerge 보류 방향 확인 후 구현·기록
 - [ ] deepmerge 공식 패치 또는 상위 도구 대응 시 재검토
@@ -95,5 +96,6 @@ nodemon 대체 안내로 README를 수정해 문서 PR #159와 파일이 겹칩�
 
 - brace-expansion: [시간 복잡도 문제](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr), [중첩 재귀 문제](https://github.com/advisories/GHSA-qhr7-859c-m2p7), [쉼표 재귀 문제](https://github.com/advisories/GHSA-6j4f-fj2g-mc7p)
 - glob: [보안 경고](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4), [14.0.5 릴리스](https://github.com/isaacs/node-glob/releases/tag/v14.0.5)
-- 잔여 항목: [minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249), [deepmerge](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)
+- 제거한 경로: [minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249)
+- 잔여 항목: [deepmerge](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)
 - 실행 방식: [Node.js watch 문서](https://nodejs.org/api/cli.html#--watch)
