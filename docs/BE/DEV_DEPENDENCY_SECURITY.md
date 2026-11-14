@@ -1,6 +1,8 @@
 # 개발용 의존성 보안 검토
 
-관련: [BE #160](https://github.com/adapterz/wku-iksan-store-BE/issues/160) · 검토·테스트 재확인: 2026-11-13
+관련: [BE #160](https://github.com/adapterz/wku-iksan-store-BE/issues/160) · 로컬·CI 검증: 2026-11-13 / 운영 버전 확인·종료: 2026-11-14
+
+**패치·배포·운영 버전 확인은 완료했습니다. 남은 deepmerge는 해결 완료가 아닌 보류 항목이며 #158에서 후속 관리합니다.**
 
 ## 이번 변경
 
@@ -79,18 +81,27 @@ npm audit
 
 긴 패턴 입력은 최대 5초 제한의 로컬 자식 프로세스에서만 실행합니다. 운영 HTTP 요청·구매·취소·부하 테스트는 하지 않습니다. 운영용 새 설치 검증도 로컬에서 수행했으며 서버 컨테이너 내부 검증을 대신하지 않습니다.
 
-## 남은 확인
+## 반영·최종 확인
+
+- 개발용 패치 [#163](https://github.com/adapterz/wku-iksan-store-BE/pull/163)은 develop에, 배포 [#164](https://github.com/adapterz/wku-iksan-store-BE/pull/164)는 main `fd03aea`에 반영했습니다. 11/13 [배포 실행](https://github.com/adapterz/wku-iksan-store-BE/actions/runs/43418283339)이 성공했습니다.
+- 배포 후 읽기 전용 운영 점검 33건과 재점검을 통과했습니다. 운영 구매·취소·부하 테스트는 포함하지 않았습니다.
+- 11/14 [Bio가 실행 중인 운영 컨테이너의 패키지 7종 버전을 확인](https://github.com/adapterz/wku-iksan-store-BE/issues/160#issuecomment-6875366369)했고 배포 lock과 일치했습니다. 버전 목록은 [마무리 기록](CLOSEOUT.md#의존성-보안-패치-최종-결과)에 정리했습니다.
+- 11/14 GitHub의 열린 Dependabot 경고는 개발용 deepmerge Low 1건입니다. #160은 종료했고 보류 사유·재검토 조건은 [#158](https://github.com/adapterz/wku-iksan-store-BE/issues/158)에 남겼습니다.
+
+### 체크리스트
 
 - [x] 로컬 새 설치·전체 테스트·커버리지·회귀 점검
 - [x] 운영용 lock 항목 불변 및 개발용 패키지 제외 설치 확인
 - [x] Linux 전체 테스트 및 Windows·Linux·macOS watch CI 검증 — [구현 커밋 6c83ed7 실행 결과](https://github.com/adapterz/wku-iksan-store-BE/actions/runs/43395905538)
-- [ ] PR 코드 리뷰
-- [ ] 병합 후 GitHub 경고 갱신 확인
+- [x] PR 코드 리뷰 — [Bio 확인](https://github.com/adapterz/wku-iksan-store-BE/pull/163#issuecomment-6850940082)
+- [x] main 반영·배포 및 운영 읽기 전용 점검
+- [x] Bio의 운영 컨테이너 설치 버전 확인
+- [x] 병합 후 GitHub 경고 갱신 확인 — deepmerge Low 1건은 보류
 - [x] nodemon 대체·deepmerge 보류 방향 확인 후 구현·기록
 - [ ] deepmerge 공식 패치 또는 상위 도구 대응 시 재검토
-- [ ] 최종 프로젝트 문서에 결과 반영
+- [x] 최종 프로젝트 문서에 결과 반영 — PR #159 및 공용 Wiki
 
-nodemon 대체 안내로 README를 수정해 문서 PR #159와 파일이 겹칩니다. 두 PR 반영 시 내장 watch 안내와 최종 진행 상태가 유지되는지 대조해야 합니다. 이번 검증 결과만으로 병합·배포 완료를 의미하지 않습니다.
+PR #159에 최신 develop을 반영하면서 README의 내장 watch 안내를 유지했습니다. 보안 패치의 배포 완료와 문서 PR #159의 검토·병합은 별개입니다. 이번 문서 갱신으로 추가 배포하거나 DB를 변경하지 않습니다.
 
 ## 근거
 
