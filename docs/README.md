@@ -9,6 +9,7 @@
 | --- | --- |
 | [로컬 개발 환경](BE/DEVELOPMENT.md) | 최초 설치, 환경변수, 신규 로컬 DB·Redis 준비 |
 | [테스트 가이드](BE/TESTING.md) | Jest·실제 DB 테스트 명령, 실행 조건, 검증 기록 기준 |
+| [의존성 보안 패치](BE/DEV_DEPENDENCY_SECURITY.md) | 개발용 패치·watch 실행 변경, 검증 결과와 deepmerge 보류 기준 |
 | [DB 구조](../db/ERD.md) | 현재 테이블·관계·제약 설명 |
 | [DB 날짜 기준](BE/DATABASE_TIMEZONE.md) | KST 저장·UTC 응답, 기존 데이터 확인 주의사항 |
 | [배포 절차](../README.md#배포) | 환경변수·마이그레이션·main 배포·배포 후 확인 |

@@ -121,6 +121,8 @@ NODE_ENV=development npm run dev
 
 자동 재시작이 필요 없으면 같은 환경에서 `npm start`를 사용합니다. 종료는 `Ctrl+C`입니다.
 
+`npm run dev`는 nodemon 대신 Node.js 24의 내장 `node --watch app.js`를 사용합니다. 진입 파일과 실제 불러온 모듈 변경 시 재시작합니다. `.env`·불러오지 않은 파일 변경 또는 기존 `rs` 수동 재시작이 필요할 때는 종료 후 다시 실행합니다. 변경 근거와 OS별 검증은 [개발용 의존성 보안 검토](DEV_DEPENDENCY_SECURITY.md)를 참고합니다.
+
 | 확인 주소 | 기대 결과 |
 | --- | --- |
 | `http://localhost:4000/api/health` | HTTP 200, `{"status":"ok"}` |

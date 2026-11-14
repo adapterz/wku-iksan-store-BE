@@ -2,7 +2,7 @@
 
 **현재 합의한 구현 범위는 마무리하고, 남은 차이와 확장 후보는 [향후 개선 과제 #158](https://github.com/adapterz/wku-iksan-store-BE/issues/158)에서 이어 관리합니다.**
 
-2026-11-11 기준 BE `develop 3b59864`·`main c94bb47`, FE `main 948ea29`와 기존 이슈·PR 기록을 대조했습니다. 두 BE 브랜치의 차이는 PR #157의 프로젝트 문서이며, 문서 검토를 위해 코드 배포나 운영 DB 변경을 실행하지 않았습니다.
+2026-11-14 최종 갱신 기준 BE는 `develop ca0a65e`·`main fd03aea`입니다. 의존성 보안 패치는 배포와 운영 컨테이너 버전 확인까지 마쳤고 #160을 종료했습니다. FE 기능·화면 기록은 11/11의 `main 948ea29` 대조 결과를 보존하며 이번에 다시 검증한 결과는 아닙니다. 이번 PR #159는 프로젝트 문서 정리이며 새 코드 배포·운영 DB 변경은 하지 않습니다.
 
 ## 완료와 후속 과제의 구분
 
@@ -15,12 +15,26 @@
 | 버그 모음 #138·취소 설계 #153 | 구현·검증된 범위는 완료, 남은 문구·표현은 #158로 이관 |
 | 제안 #63·#114·#121 | 완료 부분의 근거 보존, 남은 제안은 #158로 이관. 미구현 후보를 완료로 표시하지 않음 |
 | 범위 논의 #146 | 현재 구현 범위를 기준으로 마감. A안/B안의 모든 후보를 완료했다는 뜻은 아님 |
+| 의존성 보안 #160 | 운영·개발용 패치, main 반영·배포, 운영 버전 확인 완료. 미해결 deepmerge는 #158에서 후속 관리 |
 
 기존 기록: [#126](https://github.com/adapterz/wku-iksan-store-BE/issues/126) · [#54](https://github.com/adapterz/wku-iksan-store-BE/issues/54) · [#138](https://github.com/adapterz/wku-iksan-store-BE/issues/138) · [#153](https://github.com/adapterz/wku-iksan-store-BE/issues/153) · [#146](https://github.com/adapterz/wku-iksan-store-BE/issues/146)
 
-## 남아 있는 차이
+## 의존성 보안 패치 최종 결과
 
-**추가 우선 확인:** 2026-11-11 기본 브랜치 main의 GitHub Dependabot 경고가 12건(Critical 1·High 1·Medium 9·Low 1) 열려 있습니다. 런타임 의존성 7건·개발 의존성 5건이며, 이는 경고 수이지 패키지 수가 아닙니다. `proxy-addr`·`body-parser` 등을 포함한 영향 경로와 업데이트·회귀 검증이 필요합니다. 현재 설정에서의 실제 악용 가능성이나 운영 이미지의 설치 버전을 검증한 결과는 아닙니다. 이 상태를 보안 검증 완료로 표시하지 않으며 상세는 [#158](https://github.com/adapterz/wku-iksan-store-BE/issues/158)에서 관리합니다. 이번 문서 작업은 패키지를 변경하지 않았습니다.
+**11/11 발견 당시의 경고 12건은 과거 상태입니다. 11/14 재확인한 열린 GitHub 경고는 개발용 deepmerge Low 1건입니다.** 미해결 항목을 숨기거나 모든 보안 위험이 해소됐다고 판단한 것은 아닙니다.
+
+| 구분 | 최종 확인 |
+| --- | --- |
+| 운영용 패치 | [#161](https://github.com/adapterz/wku-iksan-store-BE/pull/161) → [#162](https://github.com/adapterz/wku-iksan-store-BE/pull/162) main 반영·배포 |
+| 개발용 패치 | [#163](https://github.com/adapterz/wku-iksan-store-BE/pull/163) → [#164](https://github.com/adapterz/wku-iksan-store-BE/pull/164) main `fd03aea` 반영. glob·brace-expansion 보완, nodemon을 Node.js watch로 대체 |
+| 배포·운영 조회 | 11/13 [배포 실행](https://github.com/adapterz/wku-iksan-store-BE/actions/runs/43418283339) 성공 및 읽기 전용 운영 점검 33건 통과. 구매·취소 등 운영 데이터 변경 테스트는 제외 |
+| 운영 설치 버전 | 11/14 [Bio의 실행 중 컨테이너 확인](https://github.com/adapterz/wku-iksan-store-BE/issues/160#issuecomment-6875366369): express 4.22.3, body-parser 1.20.9, proxy-addr 2.0.8, qs 6.16.2, ip-address 10.7.6, mysql2 3.24.6, sql-escaper 1.5.2. 배포 lock과 일치 |
+| 보안 검사 | 패치 검증 환경의 `npm audit --omit=dev` 0건. 전체 audit의 Low 영향 패키지 5개는 deepmerge 한 원인에서 파생되며 GitHub 경고 수와 구분 |
+| 종료·보류 | [#160](https://github.com/adapterz/wku-iksan-store-BE/issues/160) 완료 종료. deepmerge 공식 패치·상위 도구 대응은 [#158](https://github.com/adapterz/wku-iksan-store-BE/issues/158)에서 추적 |
+
+로컬·CI 검증과 watch 실행 변경의 상세는 [개발용 의존성 보안 검토](DEV_DEPENDENCY_SECURITY.md)에 기록했습니다. 이번 문서 수정은 완료된 패치 결과를 정리하며 패키지·배포 설정을 다시 바꾸지 않습니다.
+
+## 남아 있는 차이
 
 | 항목 | 현재 상태 |
 | --- | --- |

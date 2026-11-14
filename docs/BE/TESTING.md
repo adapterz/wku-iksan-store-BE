@@ -6,6 +6,7 @@
 | 구분 | 목적 | 필요한 환경 |
 | --- | --- | --- |
 | Jest | 컨트롤러·모델·라우터의 자동 회귀 검증 | Node.js 24, npm 의존성 |
+| 개발 도구 회귀 | 의존성 소비 경로·Node.js watch 동작 | Node.js 24, npm 의존성. DB 연결 불필요 |
 | DB 테스트 | 실제 SQL·트랜잭션·DB 연동 동작 검증 | 별도 로컬 MySQL 및 임시 DB 생성·삭제 권한 |
 | 화면·배포 검증 | 쿠키·FE 연동·배포 환경 확인 | FE/BE 실행 환경과 별도 검증 기록 |
 
@@ -16,6 +17,17 @@ npm test -- --runInBand
 ```
 
 `archive/tests`의 Jest 테스트를 실행합니다. CI는 `npm test`를 사용합니다. 아래 실제 DB 테스트와 별개이며, 이 결과만으로 브라우저·운영 배포 검증이 끝난 것은 아닙니다.
+
+### 개발용 의존성·watch 점검
+
+```bash
+npm run test:dev-security
+npm run test:dev-watch
+npm audit --omit=dev
+npm audit
+```
+
+보안 스크립트는 패키지 버전과 실제 소비 경로를, watch 스크립트는 임시 파일·프로세스로 재시작과 종료를 확인합니다. DB나 운영 서버에는 연결하지 않습니다. PR CI는 Linux 전체 Jest와 Windows·Linux·macOS watch 점검을 실행합니다. 전체 audit에는 보류 중인 deepmerge가 남아 있으므로 0건을 기대하지 않습니다. 상세 범위와 보류 기준은 [의존성 보안 기록](DEV_DEPENDENCY_SECURITY.md)을 참고합니다.
 
 ## 2. MySQL 연동 테스트
 
@@ -100,6 +112,18 @@ DB 모킹 기반 테스트이며, `package.json`에 취소 전용 실제 DB 테�
 
 검증 기록은 `날짜 / 검증 범위 / 기준 커밋·환경·명령 / 결과 / 미확인 사항` 순서로 남깁니다.
 Jest 통과, 실제 DB 테스트 통과, 브라우저 확인, 운영 배포 확인을 서로 구분합니다.
+
+### 2026-11-12–14 의존성 보안 패치 검증
+
+| 검증 범위 | 기준·결과 | 경계 |
+| --- | --- | --- |
+| 격리 로컬 설치·회귀 | Node.js 24.11.1 / npm 11.6.2. 새 설치·전체 Jest·커버리지 각각 54 suites·889 tests, 보안 회귀 20건, watch 6건 통과 | 실제 DB·운영 사용자 흐름 검증은 아님 |
+| PR CI | [#163 최종 실행](https://github.com/adapterz/wku-iksan-store-BE/actions/runs/43396101865): Linux 전체 테스트 및 Windows·Linux·macOS watch 통과 | 해당 커밋의 자동 테스트 결과 |
+| 배포·운영 조회 | main `fd03aea`, [11/13 배포 성공](https://github.com/adapterz/wku-iksan-store-BE/actions/runs/43418283339), 읽기 전용 점검 33건 및 재점검 통과 | 운영 구매·취소·브라우저·부하 테스트는 제외 |
+| 운영 설치 버전 | [11/14 Bio 확인](https://github.com/adapterz/wku-iksan-store-BE/issues/160#issuecomment-6875366369)의 컨테이너 패키지 7종이 배포 lock과 일치 | 담당자가 공유한 실행 중 컨테이너 확인 결과 |
+| 잔여 경고 | 패치 검증 환경의 운영 audit 0건. 11/14 GitHub 열린 경고 deepmerge Low 1건 | 전체 audit의 Low 5개 영향 패키지와 GitHub 경고 개수는 다름. deepmerge 해결 완료 아님 |
+
+위 결과로 #160을 마감했고 잔여 항목은 #158에서 관리합니다. 이번 문서 편집 중 위 운영 테스트를 다시 실행한 것은 아닙니다.
 
 ### 2026-11-11 문서 일관성 검토
 
