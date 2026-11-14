@@ -1,8 +1,19 @@
 # 장바구니 로컬 검증 결과 — 2026-09-10
 
-> 아래 9/10 결과는 최초 검증 기록입니다. FE 보완 이후 결과는 문서 끝의 9/11 항목을 참고하세요.
+> **과거 검증 기록입니다.** 아래 결과·미완료 표시는 2026-09-10~11 당시 상태입니다. 현재 실행 방법은 [테스트 가이드](TESTING.md), 종료 범위는 [마무리 기록](CLOSEOUT.md)을 참고하세요.
 
-## 최신 결과 — 2026-09-11 PR 준비
+## 후속 반영 현황 — 2026-11-11 정리
+
+| 당시 남은 항목 | 이후 기록 |
+| --- | --- |
+| #85 탈퇴·선물 주문 경합 | [BE PR #151](https://github.com/adapterz/wku-iksan-store-BE/pull/151) 병합. [탈퇴 동시성 문서](ACCOUNT_WITHDRAWAL.md)에 실제 DB 검증 기록 |
+| FE 공통 DOM 테스트 오류 | [FE PR #78](https://github.com/adapterz/wku-iksan-store-FE/pull/78) 병합. 아래 OPEN·실패 표시는 당시 기록 |
+| 정식 장바구니 연동 | [FE PR #99](https://github.com/adapterz/wku-iksan-store-FE/pull/99) 병합. 이후 검증은 [#126](https://github.com/adapterz/wku-iksan-store-BE/issues/126)에 보존 |
+| 전체 검증·후속 보완 | #126 검증 작업은 마감, 남은 사항은 [#158](https://github.com/adapterz/wku-iksan-store-BE/issues/158)로 이관 |
+
+아래 테스트 수치·실패 결과를 현재 버전의 결과로 바꾸지 않고 보존합니다. 이번 문서 갱신이 운영 재검증을 뜻하지는 않습니다.
+
+## 당시 결과 — 2026-09-11 PR 준비
 
 BE develop `22d6fce`, FE develop `89e2c2e`를 각각 기능 브랜치에 통합했습니다. 아래 과거 결과보다 이 결과가 우선합니다.
 
@@ -19,7 +30,7 @@ BE develop `22d6fce`, FE develop `89e2c2e`를 각각 기능 브랜치에 통합�
 
 FE 공통 오류는 `tests/page-urls.test.cjs`의 `confirmBtn.addEventListener is not a function`입니다. 장바구니와 무관한 기존 오류를 이번 PR에서 중복 수정하지 않았습니다.
 
-#85의 기존 탈퇴 동시성 문제는 미해결입니다. 이번 PR은 탈퇴 코드를 변경하지 않으며 Aon의 보완 이후 묶음 주문과의 동시성 연동을 다시 검증합니다. API·ERD와 화면 검토 및 운영 반영도 별도입니다.
+9/11 당시 #85의 탈퇴 동시성 문제는 미해결이었습니다. 당시 PR은 탈퇴 코드를 변경하지 않았으며, 이후 보완·검증은 위 후속 반영 현황과 구분합니다. 아래 API·ERD 검토·운영 반영 여부도 당시 기록입니다.
 
 ---
 

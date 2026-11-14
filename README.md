@@ -11,20 +11,31 @@ BE/FE 2개 저장소 체제로 정리되었습니다. 이 저장소는 **BE(API 
 ## 주요 기능
 
 - **회원/인증** — 이메일 회원가입·로그인, 세션 기반 인증, 비밀번호 변경 시 전체 세션 무효화
-- **상품 탐색** — 상품·카테고리·브랜드 목록/상세 조회, 검색
+- **상품 탐색** — 상품·카테고리·브랜드 목록/상세 조회, 검색·인기 검색어
 - **장바구니 & 주문** — 장바구니 담기/수정, 여러 상품을 한 번에 묶는 주문 그룹 단위 주문
-- **선물하기** — 친구에게 선물 보내기, 선물함 조회, 바코드로 매장에서 사용 처리
+- **선물하기** — 친구에게 선물 보내기, 선물함·도착 알림 조회, 교환권 사용·수신자 취소 및 취소 내역 조회
 - **위시리스트** — 관심 상품 찜하기
 - **리뷰** — 사용 완료한 선물에 대한 리뷰 작성·조회·수정·삭제, 상품별 공개 리뷰·통계
-- **문의/신고** — 사용자 문의 등록, 부적절한 리뷰 신고
+- **문의/신고** — 사용자 문의 등록·내역 조회, 타인 리뷰 신고, 본인 제재 이력·경고 안내
 - **관리자** — 회원·상품·카테고리·리뷰·문의·신고·제재 관리, 운영 대시보드
+
+결제는 Mock 처리이며 실제 PG 결제·금전 환불·매장 POS 연동은 포함하지 않습니다.
+교환권 취소는 수신자가 미사용 교환권을 사용 불가 상태로 바꾸는 기능이며, 구매자 주문 전체 취소와 구분합니다.
 
 ## 프로젝트 개요
 
-지역 상권과 연계한 온라인 선물하기 서비스를 목표로 팀이 함께 만드는 부트캠프 팀 프로젝트입니다.
-FE/BE/Cloud 역할을 나눠 기능 단위 브랜치에서 개발하고 PR 리뷰와 통합 검증을 진행하며,
-매일 데일리 스크럼과 정기 미팅으로 진행 상황을 맞춰가고 있습니다. 진행 중인 논의와 회의 기록은
-[GitHub Wiki](https://github.com/adapterz/wku-iksan-store-BE/wiki)에 누적하고 있습니다.
+지역 상권과 연계한 온라인 선물하기 서비스를 목표로 개발한 부트캠프 팀 프로젝트입니다.
+FE/BE/Cloud 역할을 나눠 기능 단위 브랜치에서 개발하고 PR 리뷰와 통합 검증을 진행했습니다.
+데일리 스크럼·미팅 기록은 [GitHub Wiki](https://github.com/adapterz/wku-iksan-store-BE/wiki)에 보존합니다.
+
+**현재 합의한 구현 범위는 마무리했으며, 남은 안내 불일치와 확장 후보는 후속 과제로 구분합니다.** 모든 A안/B안 후보를 구현했다는 뜻은 아닙니다.
+
+| 확인할 내용 | 문서 |
+| --- | --- |
+| 실행·기능·DB·인프라 문서 찾기 | [프로젝트 문서 목차](docs/README.md) |
+| 완료 범위·검증 근거·남은 사항 구분 | [마무리 기록](docs/BE/CLOSEOUT.md) |
+| 팀 공용 구현 현황 | [공용 BE Wiki](https://github.com/adapterz/wku-iksan-store-BE/wiki/BE-구현-현황-및-마무리-기록) |
+| 후속 보완·개선 후보 관리 | [향후 개선 과제 #158](https://github.com/adapterz/wku-iksan-store-BE/issues/158) |
 
 ### 팀 구성
 
@@ -50,7 +61,7 @@ BE 담당 구분은 우선 담당 영역을 나타내며, 작업 상황에 따�
 | 개발 편의 | Node.js 내장 watch 모드 |
 | CI | GitHub Actions (PR 자동 테스트) |
 
-응답은 `{ status, code, message, data, meta? }` 형태로 통일하고, DB의 snake_case 컬럼은 API 응답에서 camelCase로 매핑합니다.
+업무 API는 `{ status, code, message, data, meta? }` 형태를 사용하고, DB의 snake_case 컬럼은 API 응답에서 camelCase로 매핑합니다. 기동 확인용 `/api/health`는 예외로 `{ "status": "ok" }`를 반환합니다.
 사용자 입력값은 항상 파라미터 바인딩으로 처리해 SQL 인젝션을 방지합니다.
 
 ## 폴더 구조
@@ -67,7 +78,7 @@ db/                      # DB 연결 풀(pool.js), Redis 클라이언트, 모델
 scripts/                # DB 연동 수동 테스트 스크립트
 archive/tests/           # Jest 자동화 테스트
 public/images/           # 정적 이미지 서빙용 폴더
-docs/                    # BE·DB 개발 기록 문서
+docs/                    # 프로젝트 문서 목차, 기능·검증 안내, BE·DB 개발 기록
 infra/                   # nginx, cloud, architecture 등 인프라 관련 문서
 .github/workflows/       # PR 테스트·배포 자동화(GitHub Actions)
 ```
@@ -115,19 +126,20 @@ CI는 `npm test`와 개발용 의존성 회귀 점검을 실행합니다. 내장
 
 - `GET /api/health` — 헬스 체크
 - `/api/auth` — 회원가입/로그인/로그아웃
-- `/api/users` — 유저 검색 등
-- `/api/products`, `/api/categories`, `/api/brands` — 상품/카테고리/브랜드 조회
+- `/api/users` — 유저 검색·프로필 변경·탈퇴, 본인 제재 이력·경고 확인
+- `/api/products`, `/api/categories`, `/api/brands` — 상품/카테고리/브랜드 조회, 상품 랭킹·인기 검색어
 - `/api/cart-items`, `/api/order-groups`, `/api/orders` — 장바구니·주문
-- `/api/gifts` — 선물함 조회, 바코드 사용 처리
+- `/api/gifts` — 선물함·도착 알림 조회, 사용·취소 처리 및 취소 내역
 - `/api/wishlists` — 찜하기
 - `/api/reviews`, `GET /api/products/:id/reviews` — 리뷰 작성/조회, 상품별 공개 리뷰·통계
-- `/api/inquiries` — 문의 등록
+- `/api/inquiries` — 문의 등록·본인 내역 조회
 - `/api/admin/*` — 관리자용 회원/상품/카테고리/리뷰/신고/문의/제재/대시보드 API
 
-세부 API 명세는 Wiki [API 설계](https://github.com/adapterz/wku-iksan-store-BE/wiki/API-설계) 문서를,
+세부 API 명세는 Wiki [API 설계 v2](https://github.com/adapterz/wku-iksan-store-BE/wiki/API-설계-v2) 문서를,
 DB 구조는 [db/ERD.md](db/ERD.md)를 참고하세요. 기능별 구현 배경·검증 방법은 `docs/BE/`, `docs/DB/` 아래 문서에 정리되어 있습니다.
 
 찜 목록 응답에 추가된 `product.wishlistCount`와 검증 범위는 [찜 목록 관심 수](docs/BE/WISHLIST_COUNTS.md)를 참고하세요.
+교환권 취소의 API·DB 변경, 검증 방법과 알려진 표시 문제는 [교환권 취소](docs/BE/GIFT_CANCELLATION.md)에 정리했습니다.
 
 ## 배포
 

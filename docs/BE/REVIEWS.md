@@ -1,8 +1,8 @@
 # 리뷰 API 구현·검증
 
 설계: [리뷰 페이지 #77](https://github.com/adapterz/wku-iksan-store-BE/issues/77).
-이 브랜치에서는 텍스트 리뷰 BE와 DB 마이그레이션을 구현합니다.
-실제 FE 상품 상세·선물함 연동 및 상품 카드 통계 추가는 별도 작업입니다.
+텍스트 리뷰·관리자 모더레이션·신고와 관련 BE 검증을 설명합니다.
+아래 날짜가 붙은 검증 결과는 당시 기록이며, 현재 브라우저·운영 상태의 재검증 결과로 간주하지 않습니다.
 
 ## API
 
@@ -119,7 +119,10 @@ CHECK·UNIQUE·FK 위반, 숨김 처리와 집계, 개인정보 비노출도 검
 실제 제재 등록 후 작성·수정 차단과 DB 미변경, 경고·자연 만료·조기 해제 후 허용,
 정지 중 조회·본인 삭제 유지도 함께 검증합니다.
 
-## 운영 반영 주의
+## 최초 리뷰 도입 시 적용 절차 (기록)
+
+아래는 리뷰 테이블 도입 당시의 순서입니다. 이미 적용한 DB에 재실행하지 않습니다.
+현재 배포는 [README](../../README.md#배포)의 적용 이력·호환성 확인 절차와 [ERD](../../db/ERD.md)를 기준으로 필요한 변경만 수행합니다.
 
 1. #87의 기존 마이그레이션·배포·검증 완료 확인.
 2. 실제 DB 버전 확인, 백업 및 reviews 테이블 미존재 확인.
@@ -129,11 +132,11 @@ CHECK·UNIQUE·FK 위반, 숨김 처리와 집계, 개인정보 비노출도 검
 
 새 코드는 기존 선물 조회에서도 reviews를 사용하므로 코드만 먼저 배포하지 않습니다.
 schema.sql은 새 DB 생성용, migrate_reviews.sql은 기존 DB 추가용으로 둘 중 하나만 실행합니다.
-자동 운영 마이그레이션이나 관리자 권한·라우터 연결, 이미지·신고 기능은 포함하지 않습니다.
+이 최초 도입 단계에는 자동 운영 마이그레이션·관리자 연결·신고를 포함하지 않았습니다. 관리자 연결·신고는 후속 구현되었으며 이미지 리뷰는 포함하지 않습니다.
 
-## 관리자 모더레이션 연동 준비
+## 관리자 모더레이션
 
-관리자 페이지 설계 #90과 병렬로 진행할 수 있도록 리뷰 상태 변경 로직과 검증을 미리 준비했습니다.
+관리자 페이지 설계 #90에 따라 리뷰 상태 변경 API와 권한 검증이 연결되어 있습니다.
 
 - `reviewModel.updateReviewStatus(id, status)`: 리뷰를 잠금 조회하고 `visible`/`hidden`으로 변경합니다.
 - `reviewModerationController.updateReviewStatus`: ID·본문을 검증하고 공통 응답 형식으로 결과를 반환합니다.
@@ -151,4 +154,4 @@ Content-Type: application/json
 
 #90의 `users.role`/`requireAdmin`이 반영되어(관리자 페이지 1단계 PR), `routes/admin/reviews.js`에서
 `requireLogin` → `requireAdmin` 뒤에 이 컨트롤러를 연결했습니다. 401·403 라우트 테스트는
-`archive/tests/routes/adminReviews.test.js`에 있습니다. 신고(report) 기능 자체는 #90의 후속 범위입니다.
+`archive/tests/routes/adminReviews.test.js`에 있습니다. 신고 접수는 `POST /api/reviews/:id/reports`, 관리자 처리 큐는 `/api/admin/reports`에 연결되어 있습니다.
